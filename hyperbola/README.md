@@ -1,6 +1,6 @@
-# Hyperbola RWA Liquidity API
+# MEU Exchange API
 
-A TypeScript/Hono backend for ATS-backed RWA lifecycle operations on Hedera: KYC, repo collateral workflow, off-chain order matching with compliant ATS settlement, and distribution drafts.
+A TypeScript/Hono backend for ATS-backed RWA lifecycle operations on Hedera: KYC, repo collateral workflow, off-chain order matching with compliant ATS settlement, and distribution drafts. MEU Exchange does not custody signing keys.
 
 ## Run locally
 
@@ -15,14 +15,31 @@ npm run dev
 ## API
 
 - `GET /health` and `GET /api/state`
+- `GET /api/assets` — initial asset catalogue and required issuance terms
+- `POST /api/intents/issuance`, `/kyc`, `/lock`, `/release`, `/transfer` — create canonical ATS SDK inputs for a connected wallet/custodian to sign. Issuance requires the deployed ATS configuration ID/version rather than guessing one.
 - `POST /api/kyc/grants` — `{ "tokenId", "accountId", "vcData" }`
 - `POST /api/repos` — `{ "tokenId", "borrower", "lender", "collateralAmount", "principalHbar", "maturityAt" }`
 - `POST /api/repos/:id/fund`, then `POST /api/repos/:id/release`
 - `POST /api/orders` — `{ "tokenId", "owner", "side", "quantity", "priceHbar" }`
 - `POST /api/distributions` — `{ "tokenId", "amountHbar", "recordDate" }`
 
+## Landing page
+
+```bash
+npm run dev:web
+npm run build:web
+```
+
+The Astro landing page runs independently of the Hono API. It includes an aerial-image scanner, asset application tabs, lifecycle annotations, and a local four-step walkthrough. The walkthrough does not call the backend or send transactions.
+
+Move the cursor, touch the image, or focus an image section and use the arrow keys to reveal aligned mesh, X-ray, and illustrative heatmap layers. The scanner has a pause control and starts disabled with reduced-motion preferences. Static imagery and page content remain available without the effect. There is no map API, geospatial analysis, or live asset data behind the visualisation.
+
+Visual decisions are recorded in [DESIGN.md](DESIGN.md). Reference-image provenance and launch requirements are recorded in [ASSETS.md](ASSETS.md).
+
 ## Hedera ATS integration
 
-With `MODE=testnet`, the gateway initializes the ATS SDK using the configured resolver/factory, calls the documented `Kyc.grantKyc` and `Security.transfer` SDK APIs, and fails closed for collateral lock/release until a custodial signer is deliberately configured for the deployed `LockFacet`. This prevents a backend from silently taking custody or inventing a transaction signature flow.
+With `MODE=testnet`, the gateway initializes the ATS SDK using the configured resolver/factory. Signing is intentionally delegated to a participant's ATS-compatible wallet or existing custodian integration; the API never accepts or stores a private key. Transaction-submitting operations fail closed until that signer connection is supplied.
+
+The intent routes make that delegation concrete: they persist an `awaiting_signature` request payload using ATS's `CreateBondRequest`/`CreateEquityRequest`, `GrantKycRequest`, `LockRequest`, `ReleaseRequest`, or `TransferRequest` field shapes. A wallet or signing service executes the matching ATS SDK call and returns its Hedera transaction ID for confirmation.
 
 The configured Testnet endpoints and example resolver/factory IDs follow the [ATS SDK integration guide](https://github.com/hashgraph/asset-tokenization-studio/blob/main/docs/ats/developer-guides/sdk-integration.md). Deploying a private ATS deployment requires updating the two addresses from its generated deployment manifest.
