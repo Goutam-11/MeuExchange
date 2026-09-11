@@ -1,0 +1,149 @@
+export type Id = string;
+
+export type RepoStatus = "collateral_locked" | "funded" | "released" | "defaulted";
+export type OrderSide = "buy" | "sell";
+export type OrderStatus = "open" | "filled" | "cancelled";
+
+export interface RepoAgreement {
+  id: Id;
+  tokenId: string;
+  borrower: string;
+  lender: string;
+  collateralAmount: number;
+  principalHbar: number;
+  maturityAt: string;
+  status: RepoStatus;
+  lockReference?: string;
+  transactions: string[];
+}
+
+export interface Order {
+  id: Id;
+  tokenId: string;
+  owner: string;
+  side: OrderSide;
+  quantity: number;
+  priceHbar: number;
+  remaining: number;
+  status: OrderStatus;
+  createdAt: string;
+}
+
+export interface Trade {
+  id: Id;
+  tokenId: string;
+  buyOrderId: Id;
+  sellOrderId: Id;
+  buyer: string;
+  seller: string;
+  quantity: number;
+  priceHbar: number;
+  settlementReference?: string;
+  createdAt: string;
+}
+
+export interface Distribution {
+  id: Id;
+  tokenId: string;
+  amountHbar: number;
+  recordDate: string;
+  status: "draft" | "submitted";
+}
+
+export interface ChainGateway {
+  grantKyc(tokenId: string, accountId: string, vcData: string): Promise<string>;
+  lockCollateral(input: Pick<RepoAgreement, "tokenId" | "borrower" | "collateralAmount" | "maturityAt">): Promise<string>;
+  releaseCollateral(repo: RepoAgreement): Promise<string>;
+  settleTrade(trade: Trade): Promise<string>;
+}
+
+const id = (prefix: string) => `${prefix}_${crypto.randomUUID()}`;
+
+export class LiquidityPlatform {
+  readonly repos = new Map<Id, RepoAgreement>();
+  readonly orders = new Map<Id, Order>();
+  readonly trades = new Map<Id, Trade>();
+  readonly distributions = new Map<Id, Distribution>();
+
+  constructor(private readonly chain: ChainGateway) {}
+
+  async grantKyc(tokenId: string, accountId: string, vcData: string) {
+    const transactionId = await this.chain.grantKyc(tokenId, accountId, vcData);
+    return { tokenId, accountId, transactionId };
+  }
+
+  async createRepo(input: Omit<RepoAgreement, "id" | "status" | "transactions" | "lockReference">) {
+    requirePositive(input.collateralAmount, "collateralAmount");
+    requirePositive(input.principalHbar, "principalHbar");
+    requireFuture(input.maturityAt);
+    const agreement: RepoAgreement = { ...input, id: id("repo"), status: "collateral_locked", transactions: [] };
+    agreement.lockReference = await this.chain.lockCollateral(agreement);
+    agreement.transactions.push(agreement.lockReference);
+    this.repos.set(agreement.id, agreement);
+    return agreement;
+  }
+
+  fundRepo(repoId: Id) {
+    const repo = this.mustRepo(repoId);
+    if (repo.status !== "collateral_locked") throw new Error("Only collateral_locked repo agreements can be funded");
+    repo.status = "funded";
+    return repo;
+  }
+
+  async releaseRepo(repoId: Id) {
+    const repo = this.mustRepo(repoId);
+    if (repo.status !== "funded") throw new Error("Only funded repo agreements can be released");
+    const transactionId = await this.chain.releaseCollateral(repo);
+    repo.transactions.push(transactionId);
+    repo.status = "released";
+    return repo;
+  }
+
+  async placeOrder(input: Omit<Order, "id" | "remaining" | "status" | "createdAt">) {
+    requirePositive(input.quantity, "quantity");
+    requirePositive(input.priceHbar, "priceHbar");
+    const order: Order = { ...input, id: id("order"), remaining: input.quantity, status: "open", createdAt: new Date().toISOString() };
+    this.orders.set(order.id, order);
+    return this.match(order);
+  }
+
+  createDistribution(input: Omit<Distribution, "id" | "status">) {
+    requirePositive(input.amountHbar, "amountHbar");
+    const distribution: Distribution = { ...input, id: id("distribution"), status: "draft" };
+    this.distributions.set(distribution.id, distribution);
+    return distribution;
+  }
+
+  state() {
+    return { repos: [...this.repos.values()], orders: [...this.orders.values()], trades: [...this.trades.values()], distributions: [...this.distributions.values()] };
+  }
+
+  private async match(taker: Order) {
+    const candidates = [...this.orders.values()].filter((maker) => maker.id !== taker.id && maker.status === "open" && maker.tokenId === taker.tokenId && maker.side !== taker.side && compatible(taker, maker));
+    candidates.sort((a, b) => taker.side === "buy" ? a.priceHbar - b.priceHbar : b.priceHbar - a.priceHbar);
+    for (const maker of candidates) {
+      if (!taker.remaining) break;
+      const quantity = Math.min(taker.remaining, maker.remaining);
+      const trade: Trade = { id: id("trade"), tokenId: taker.tokenId, buyOrderId: taker.side === "buy" ? taker.id : maker.id, sellOrderId: taker.side === "sell" ? taker.id : maker.id, buyer: taker.side === "buy" ? taker.owner : maker.owner, seller: taker.side === "sell" ? taker.owner : maker.owner, quantity, priceHbar: maker.priceHbar, createdAt: new Date().toISOString() };
+      trade.settlementReference = await this.chain.settleTrade(trade);
+      this.trades.set(trade.id, trade);
+      taker.remaining -= quantity;
+      maker.remaining -= quantity;
+      if (!maker.remaining) maker.status = "filled";
+    }
+    if (!taker.remaining) taker.status = "filled";
+    return { order: taker, trades: [...this.trades.values()].filter((trade) => trade.buyOrderId === taker.id || trade.sellOrderId === taker.id) };
+  }
+
+  private mustRepo(repoId: string) {
+    const repo = this.repos.get(repoId);
+    if (!repo) throw new Error("Repo agreement not found");
+    return repo;
+  }
+}
+
+function compatible(taker: Order, maker: Order) {
+  return taker.side === "buy" ? taker.priceHbar >= maker.priceHbar : taker.priceHbar <= maker.priceHbar;
+}
+function requirePositive(value: number, name: string) { if (!Number.isFinite(value) || value <= 0) throw new Error(`${name} must be a positive number`); }
+function requireFuture(iso: string) { if (Number.isNaN(Date.parse(iso)) || Date.parse(iso) <= Date.now()) throw new Error("maturityAt must be a future ISO timestamp"); }

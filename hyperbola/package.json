@@ -1,0 +1,23 @@
+{
+  "name": "hyperbola-rwa-liquidity-api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "start": "tsx src/server.ts",
+    "check": "tsc --noEmit",
+    "test": "tsx --test test/**/*.test.ts"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.13.7",
+    "@hashgraph/asset-tokenization-sdk": "^1.17.0",
+    "@hashgraph/sdk": "^2.73.0"
+    ,"hono": "^4.6.14"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.1",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}
