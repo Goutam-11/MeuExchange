@@ -9,6 +9,15 @@ export function createApp(platform: LiquidityPlatform, mode: "demo" | "testnet",
   app.get("/api/state", (context) => context.json(platform.state()));
   app.get("/api/assets", (context) => context.json({ assets: offeredAssetTypes, disclaimer: "Instrument terms and legal approvals are issuer supplied." }));
   app.get("/api/intents", (context) => context.json({ intents: intents.all() }));
+  app.get("/api/dashboard", (context) => context.json({
+    mode,
+    network: "hedera-testnet",
+    custody: "non-custodial",
+    ats: { sdk: "@hashgraph/asset-tokenization-sdk", complianceBoundary: "ATS token controls" },
+    assets: offeredAssetTypes,
+    state: platform.state(),
+    intents: intents.all()
+  }));
   app.post("/api/intents/issuance", async (context) => {
     try { return context.json(intents.issue(await context.req.json()), 201); }
     catch (error) { return context.json({ error: message(error) }, 400); }

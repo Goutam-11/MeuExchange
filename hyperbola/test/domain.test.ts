@@ -32,6 +32,17 @@ test("Hono exposes health without a network listener", async () => {
   assert.deepEqual(await response.json(), { status: "ok", mode: "demo" });
 });
 
+test("dashboard snapshot exposes ATS and MEU integration state", async () => {
+  const response = await createApp(new LiquidityPlatform(chain), "demo").request("http://local/api/dashboard");
+  const body = await response.json() as { mode: string; custody: string; ats: { sdk: string }; assets: unknown[]; state: { repos: unknown[] } };
+  assert.equal(response.status, 200);
+  assert.equal(body.mode, "demo");
+  assert.equal(body.custody, "non-custodial");
+  assert.equal(body.ats.sdk, "@hashgraph/asset-tokenization-sdk");
+  assert.equal(body.assets.length, 2);
+  assert.deepEqual(body.state.repos, []);
+});
+
 test("Hono prepares a non-custodial ATS bond issuance intent", async () => {
   const app = createApp(new LiquidityPlatform(chain), "demo");
   const response = await app.request("http://local/api/intents/issuance", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ assetType: "fixed-income-note", name: "MEU Demo Note", symbol: "MDN", isin: "TEST00000001", currency: "USD", units: "1000", configId: "0.0.123456", configVersion: 1 }) });
