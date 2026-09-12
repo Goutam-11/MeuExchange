@@ -1,0 +1,5 @@
+dist
+node_modules
+var
+src/styles/landing.css
+src/pages/index.astro

@@ -1,10 +1,8 @@
-import type { MetaMaskSDK } from "@metamask/sdk";
-
 type DashboardPayload = {
   mode: "demo" | "testnet";
   network: string;
   custody: string;
-  ats: { sdk: string; complianceBoundary: string };
+  ats: { sdk: string; complianceBoundary: string; resolverAddress: string; factoryAddress: string; mirrorNode: string; rpcNode: string; configId: string; configVersion: number };
   assets: Array<{
     id: string;
     name: string;
@@ -22,6 +20,7 @@ type DashboardPayload = {
     id: string;
     kind: string;
     status: string;
+    request: Record<string, unknown>;
     createdAt: string;
     transactionId?: string;
   }>;
@@ -34,6 +33,8 @@ const alertBox = root.querySelector<HTMLElement>("#dashboard-alert")!;
 let snapshot: DashboardPayload | null = null;
 let walletAccount = "";
 let walletChain = "";
+let atsSdk: typeof import("@hashgraph/asset-tokenization-sdk") | null = null;
+let atsInitialized = false;
 
 function showMessage(message: string) {
   alertBox.querySelector("p")!.textContent = message;
@@ -169,14 +170,8 @@ root
   .querySelectorAll<HTMLButtonElement>("[data-refresh]")
   .forEach((button) => button.addEventListener("click", refresh));
 
-let sdk: MetaMaskSDK | null = null;
-async function getSdk() {
-  if (!sdk) {
-    const { MetaMaskSDK: MetaMaskSdkConstructor } = await import("@metamask/sdk");
-    sdk = new MetaMaskSdkConstructor({ dappMetadata: { name: "MEU Exchange", url: window.location.origin } });
-  }
-  return sdk;
-}
+type EthereumProvider = { request(args: { method: string; params?: unknown[] }): Promise<unknown> };
+function getProvider() { return (window as Window & { ethereum?: EthereumProvider }).ethereum; }
 const walletButton = root.querySelector<HTMLButtonElement>("#wallet-connect")!;
 const walletDialog = root.querySelector<HTMLElement>("#wallet-dialog")!;
 const walletDialogButton = root.querySelector<HTMLButtonElement>(
@@ -201,12 +196,11 @@ async function connectWallet() {
   walletDialogButton.disabled = true;
   walletCopy.textContent = "Waiting for approval in MetaMask…";
   try {
-    const walletSdk = await getSdk();
-    const accounts = await walletSdk.connect();
+    const provider = getProvider();
+    if (!provider) throw new Error("MetaMask is not installed");
+    const accounts = await provider.request({ method: "eth_requestAccounts" }) as string[];
     walletAccount = accounts[0] || "";
-    const provider = walletSdk.getProvider();
-    if (provider)
-      walletChain = String(await provider.request({ method: "eth_chainId" }));
+    walletChain = String(await provider.request({ method: "eth_chainId" }));
     walletDialog.hidden = true;
     updateWallet();
   } catch (error) {
@@ -219,6 +213,61 @@ async function connectWallet() {
   }
 }
 async function ensureWallet() { if (!walletAccount) await connectWallet(); if (!walletAccount) throw new Error("Connect MetaMask before signing an intent"); }
+
+async function getAtsSdk() {
+  if (!atsSdk) atsSdk = await import("@hashgraph/asset-tokenization-sdk");
+  return atsSdk;
+}
+
+async function connectAtsWallet() {
+  if (!snapshot) throw new Error("Load the dashboard before connecting ATS");
+  const config = snapshot.ats;
+  if (!config.resolverAddress || !config.factoryAddress || !config.mirrorNode || !config.rpcNode) throw new Error("ATS testnet configuration is unavailable; set the resolver, factory, mirror-node, and RPC-node values on the API");
+  const ats = await getAtsSdk();
+  const network = {
+    network: "testnet",
+    mirrorNode: { baseUrl: config.mirrorNode, name: "testnet" },
+    rpcNode: { baseUrl: config.rpcNode, name: "testnet" },
+  } as const;
+  if (!atsInitialized) {
+    await ats.Network.init(new ats.InitializationRequest({
+      ...network,
+      configuration: { factoryAddress: config.factoryAddress, resolverAddress: config.resolverAddress },
+      factories: { factories: [{ factory: config.factoryAddress, environment: "testnet" }] },
+      resolvers: { resolvers: [{ resolver: config.resolverAddress, environment: "testnet" }] },
+      mirrorNodes: { nodes: [{ mirrorNode: network.mirrorNode, environment: "testnet" }] },
+      jsonRpcRelays: { nodes: [{ jsonRpcRelay: network.rpcNode, environment: "testnet" }] },
+    }));
+    atsInitialized = true;
+  }
+  await ats.Network.connect(new ats.ConnectRequest({ ...network, wallet: ats.SupportedWallets.METAMASK }));
+  return ats;
+}
+
+async function resolveHederaAccount() {
+  if (!snapshot || !walletAccount) throw new Error("Connect a wallet before resolving its Hedera account");
+  const base = snapshot.ats.mirrorNode.endsWith("/") ? snapshot.ats.mirrorNode : `${snapshot.ats.mirrorNode}/`;
+  const response = await fetch(`${base}accounts/${encodeURIComponent(walletAccount)}`);
+  if (!response.ok) throw new Error(`Mirror node could not resolve ${walletAccount} to a Hedera account`);
+  const body = await response.json() as { account?: string };
+  if (!body.account) throw new Error("Mirror node returned no Hedera account ID for this wallet");
+  return body.account;
+}
+
+async function submitAtsIntent(intent: DashboardPayload["intents"][number]) {
+  if (!snapshot?.ats.configId || !snapshot.ats.configVersion) throw new Error("ATS configId/configVersion are unavailable; discover them from the deployed resolver before issuance");
+  const ats = await connectAtsWallet();
+  const request = { ...intent.request, diamondOwnerAccount: await resolveHederaAccount() } as Record<string, unknown>;
+  if (intent.kind === "createBond") {
+    const result = await ats.Bond.create(new ats.CreateBondRequest(request as never));
+    return result.transactionId;
+  }
+  if (intent.kind === "createEquity") {
+    const result = await ats.Equity.create(new ats.CreateEquityRequest(request as never));
+    return result.transactionId;
+  }
+  throw new Error(`Browser ATS execution is not implemented for ${intent.kind}`);
+}
 walletButton.addEventListener("click", () => {
   walletDialog.hidden = false;
   walletDialogButton.focus();
@@ -240,17 +289,20 @@ intentTable.addEventListener("click", async (event) => {
   try {
     if (signId) {
       await ensureWallet();
-      const provider = (await getSdk()).getProvider();
-      if (!provider) throw new Error("MetaMask provider is unavailable");
-      const signature = String(await provider.request({ method: "personal_sign", params: [`MEU Exchange intent ${signId}`, walletAccount] }));
-      const response = await apiRequest(`/api/intents/${encodeURIComponent(signId)}/sign`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ accountId: walletAccount, signature }) });
+      const intent = snapshot?.intents.find((item) => item.id === signId);
+      if (!intent) throw new Error("Intent is no longer in the dashboard snapshot");
+      const transactionId = await submitAtsIntent(intent);
+      const response = await apiRequest(`/api/intents/${encodeURIComponent(signId)}/sign`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ accountId: walletAccount, signature: "ats-sdk-wallet" }) });
       const body = await response.json() as { error?: string };
       if (!response.ok) throw new Error(body.error || "The API rejected the signature");
-      showMessage("Intent signed by your wallet. Record the Hedera transaction ID after the external ATS submission.");
+      const submitted = await apiRequest(`/api/intents/${encodeURIComponent(signId)}/submit`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ transactionId }) });
+      const submittedBody = await submitted.json() as { error?: string };
+      if (!submitted.ok) throw new Error(submittedBody.error || "The API rejected the Hedera transaction");
+      showMessage(`ATS transaction submitted by your wallet: ${transactionId}`);
     } else if (submitId || confirmId) {
       const id = submitId || confirmId!;
-      const transactionId = window.prompt(submitId ? "Enter the Hedera transaction ID submitted by your ATS wallet:" : "Confirm the Hedera transaction ID:");
-      if (!transactionId) return;
+      const transactionId = snapshot?.intents.find((intent) => intent.id === id)?.transactionId;
+      if (!transactionId) throw new Error("This intent has no transaction ID recorded by the wallet");
       const endpoint = submitId ? "submit" : "confirm";
       const response = await apiRequest(`/api/intents/${encodeURIComponent(id)}/${endpoint}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ transactionId }) });
       const body = await response.json() as { error?: string };
@@ -277,8 +329,8 @@ root.querySelector("#prepare-issuance")!.addEventListener("click", async () => {
         isin: "MEU-ISSUANCE-0001",
         currency: "USD",
         units: "1000",
-        configId: "dashboard-config",
-        configVersion: 1,
+        configId: snapshot?.ats.configId,
+        configVersion: snapshot?.ats.configVersion,
         ownerAccount: walletAccount || undefined,
       }),
     });

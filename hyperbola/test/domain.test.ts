@@ -3,6 +3,7 @@ import test from "node:test";
 import { LiquidityPlatform, type ChainGateway, type RepoAgreement, type Trade } from "../src/domain.js";
 import { createApp } from "../src/app.js";
 import { AtsGateway } from "../src/gateway.js";
+import { IntentBook } from "../src/intents.js";
 
 const chain: ChainGateway = {
   grantKyc: async () => "kyc-1",
@@ -81,4 +82,24 @@ test("configured API access token protects API routes", async () => {
   const app = createApp(new LiquidityPlatform(chain), "demo", undefined, "secret-token");
   assert.equal((await app.request("http://local/api/dashboard")).status, 401);
   assert.equal((await app.request("http://local/api/dashboard", { headers: { authorization: "Bearer secret-token" } })).status, 200);
+});
+
+test("intent requests use ATS field names and validated value types", () => {
+  const book = new IntentBook();
+  const kyc = book.kyc("0.0.10", "0.0.20", "credential");
+  const transfer = book.transfer("0.0.10", "0.0.30", 12);
+  const lock = book.lock("0.0.10", "0.0.20", 5, "2030-01-01T00:00:00.000Z");
+  const release = book.release("0.0.10", "0.0.20", 4);
+  assert.deepEqual(kyc.request, { securityId: "0.0.10", targetId: "0.0.20", vcBase64: Buffer.from("credential").toString("base64") });
+  assert.deepEqual(transfer.request, { securityId: "0.0.10", targetId: "0.0.30", amount: "12" });
+  assert.deepEqual(lock.request, { securityId: "0.0.10", targetId: "0.0.20", amount: "5", expirationTimestamp: "2030-01-01T00:00:00.000Z" });
+  assert.deepEqual(release.request, { securityId: "0.0.10", targetId: "0.0.20", lockId: 4 });
+  assert.equal(kyc.schemaVersion, 2);
+});
+
+test("ATS request validation rejects malformed issuance and operations", () => {
+  const book = new IntentBook();
+  assert.throws(() => book.issue({ assetType: "fixed-income-note", name: "Bond", symbol: "BND", isin: "bad", currency: "USD", units: "100", configId: "cfg", configVersion: 1 }));
+  assert.throws(() => book.transfer("0.0.10", "0.0.20", -1));
+  assert.throws(() => book.kyc("0.0.10", "0.0.20", ""));
 });

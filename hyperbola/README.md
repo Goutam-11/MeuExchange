@@ -34,7 +34,7 @@ The Astro landing page runs independently of the Hono API. It includes an aerial
 
 Move the cursor, touch the image, or focus an image section and use the arrow keys to reveal aligned mesh, X-ray, and illustrative heatmap layers. The scanner has a pause control and starts disabled with reduced-motion preferences. Static imagery and page content remain available without the effect. There is no map API, geospatial analysis, or live asset data behind the visualisation.
 
-The operations dashboard is available at `/dashboard`. Its Astro surface is split into `src/components/dashboard/` (`Sidebar`, `DashboardHeader`, `OverviewPanel`, `AtsPanel`, `MeuPanel`, `IntentsPanel`, and `WalletDialog`). `src/scripts/dashboard.ts` reads `GET /api/dashboard`, prepares ATS issuance intents through the Hono API, and connects a participant-owned wallet through MetaMask SDK. The dashboard never receives private keys; intents remain `awaiting_signature` until an external wallet or custodian signs them.
+The operations dashboard is available at `/dashboard`. Its Astro surface is split into `src/components/dashboard/` (`Sidebar`, `DashboardHeader`, `OverviewPanel`, `AtsPanel`, `MeuPanel`, `IntentsPanel`, and `WalletDialog`). `src/scripts/dashboard.ts` reads `GET /api/dashboard`, prepares ATS issuance intents through the Hono API, and executes them in the browser through the ATS SDK and the participant's injected MetaMask wallet. The dashboard never receives private keys; the API records only the transaction ID returned after the wallet submits the ATS transaction.
 
 Visual decisions are recorded in [DESIGN.md](DESIGN.md). Reference-image provenance and launch requirements are recorded in [ASSETS.md](ASSETS.md).
 

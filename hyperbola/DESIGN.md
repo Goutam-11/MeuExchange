@@ -131,3 +131,11 @@ Buttons and navigation have small corner radii; content frames, tab panels, and 
 - Do retain visible keyboard focus, textual workflow states, and reduced-motion behavior.
 - Don't replace the requested photographic landscape with CSS-generated terrain.
 - Don't present the scanner's false-colour imagery as measured or live asset data. Asset provenance and reuse constraints are recorded in `ASSETS.md`.
+
+## Signing architecture
+
+**Decision: Option A — Browser-side ATS SDK.** The connected participant wallet constructs, signs, and submits ATS transactions. MEU records only the SDK-returned transaction ID and never receives a private key.
+
+Browser ATS execution requires the API to expose valid resolver/factory, mirror/RPC, and resolver config values; it fails closed when those values are absent.
+
+The wallet UI keeps the EVM address for API ownership checks, then resolves it through the configured mirror node to a `0.0.x` Hedera account ID at the ATS request boundary. ATS request fields never receive the raw EVM address.
