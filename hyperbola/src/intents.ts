@@ -28,6 +28,7 @@ export interface TransactionIntent {
   signature?: string;
   transactionId?: string;
   confirmedAt?: string;
+  failureReason?: string;
 }
 
 export class IntentBook {
@@ -87,6 +88,12 @@ export class IntentBook {
     if (!transactionId) throw new Error("transactionId is required");
     if (intent.status !== "submitted") throw new Error("Submit the transaction reference before confirming it");
     intent.status = "confirmed"; intent.transactionId = transactionId; intent.confirmedAt = new Date().toISOString(); this.persist();
+    return intent;
+  }
+  fail(id: string, reason: string) {
+    const intent = this.must(id);
+    if (intent.status !== "submitted") throw new Error("Only submitted intents can fail");
+    intent.status = "failed"; intent.failureReason = reason; this.persist();
     return intent;
   }
   private save(kind: IntentKind, request: Record<string, unknown>) {

@@ -4,6 +4,7 @@ import { LiquidityPlatform, type ChainGateway, type RepoAgreement, type Trade } 
 import { createApp } from "../src/app.js";
 import { AtsGateway } from "../src/gateway.js";
 import { IntentBook } from "../src/intents.js";
+import { HederaMirrorClient } from "../src/mirror.js";
 
 const chain: ChainGateway = {
   grantKyc: async () => "kyc-1",
@@ -102,4 +103,16 @@ test("ATS request validation rejects malformed issuance and operations", () => {
   assert.throws(() => book.issue({ assetType: "fixed-income-note", name: "Bond", symbol: "BND", isin: "bad", currency: "USD", units: "100", configId: "cfg", configVersion: 1 }));
   assert.throws(() => book.transfer("0.0.10", "0.0.20", -1));
   assert.throws(() => book.kyc("0.0.10", "0.0.20", ""));
+});
+
+test("testnet confirmation rejects fabricated transactions and marks the intent failed", async () => {
+  const mirror = new HederaMirrorClient("https://mirror.test/api/v1", async () => new Response(JSON.stringify({ transactions: [] }), { status: 200 }));
+  const app = createApp(new LiquidityPlatform(chain), "testnet", undefined, undefined, mirror);
+  const created = await app.request("http://local/api/intents/issuance", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ assetType: "fixed-income-note", name: "MEU Note", symbol: "MEUN", isin: "TEST00000002", currency: "USD", units: "1000", configId: "0.0.123456", configVersion: 1, ownerAccount: "0.0.42" }) });
+  const intent = await created.json() as { id: string };
+  await app.request(`http://local/api/intents/${intent.id}/sign`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ accountId: "0.0.42", signature: "ats-sdk-wallet" }) });
+  await app.request(`http://local/api/intents/${intent.id}/submit`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ transactionId: "0.0.123@1.2.3" }) });
+  const response = await app.request(`http://local/api/intents/${intent.id}/confirm`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ transactionId: "0.0.123@1.2.3" }) });
+  assert.equal(response.status, 400);
+  assert.match((await response.json() as { error: string }).error, /not found/);
 });

@@ -244,20 +244,23 @@ async function connectAtsWallet() {
   return ats;
 }
 
-async function resolveHederaAccount() {
-  if (!snapshot || !walletAccount) throw new Error("Connect a wallet before resolving its Hedera account");
+async function resolveHederaAccount(wallet = walletAccount) {
+  if (!snapshot || !wallet) throw new Error("Connect a wallet before resolving its Hedera account");
   const base = snapshot.ats.mirrorNode.endsWith("/") ? snapshot.ats.mirrorNode : `${snapshot.ats.mirrorNode}/`;
-  const response = await fetch(`${base}accounts/${encodeURIComponent(walletAccount)}`);
-  if (!response.ok) throw new Error(`Mirror node could not resolve ${walletAccount} to a Hedera account`);
+  const response = await fetch(`${base}accounts/${encodeURIComponent(wallet)}`);
+  if (!response.ok) throw new Error(`Mirror node could not resolve ${wallet} to a Hedera account`);
   const body = await response.json() as { account?: string };
   if (!body.account) throw new Error("Mirror node returned no Hedera account ID for this wallet");
   return body.account;
 }
 
+async function normalizeTarget(value: unknown) { const target = String(value || ""); return target.startsWith("0x") ? resolveHederaAccount(target) : target; }
+
 async function submitAtsIntent(intent: DashboardPayload["intents"][number]) {
   if (!snapshot?.ats.configId || !snapshot.ats.configVersion) throw new Error("ATS configId/configVersion are unavailable; discover them from the deployed resolver before issuance");
   const ats = await connectAtsWallet();
   const request = { ...intent.request, diamondOwnerAccount: await resolveHederaAccount() } as Record<string, unknown>;
+  if (request.targetId) request.targetId = await normalizeTarget(request.targetId);
   if (intent.kind === "createBond") {
     const result = await ats.Bond.create(new ats.CreateBondRequest(request as never));
     return result.transactionId;
@@ -266,6 +269,10 @@ async function submitAtsIntent(intent: DashboardPayload["intents"][number]) {
     const result = await ats.Equity.create(new ats.CreateEquityRequest(request as never));
     return result.transactionId;
   }
+  if (intent.kind === "grantKyc") return (await ats.Kyc.grantKyc(new ats.GrantKycRequest(request as never))).transactionId;
+  if (intent.kind === "lock") return (await ats.Security.lock(new ats.LockRequest(request as never))).transactionId;
+  if (intent.kind === "release") return (await ats.Security.release(new ats.ReleaseRequest(request as never))).transactionId;
+  if (intent.kind === "transfer") return (await ats.Security.transfer(new ats.TransferRequest(request as never))).transactionId;
   throw new Error(`Browser ATS execution is not implemented for ${intent.kind}`);
 }
 walletButton.addEventListener("click", () => {

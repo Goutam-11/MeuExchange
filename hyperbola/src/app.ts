@@ -2,8 +2,9 @@ import { Hono } from "hono";
 import { LiquidityPlatform } from "./domain.js";
 import { offeredAssetTypes } from "./assets.js";
 import { IntentBook } from "./intents.js";
+import { HederaMirrorClient } from "./mirror.js";
 
-export function createApp(platform: LiquidityPlatform, mode: "demo" | "testnet", intents = new IntentBook(), accessToken = process.env.API_ACCESS_TOKEN) {
+export function createApp(platform: LiquidityPlatform, mode: "demo" | "testnet", intents = new IntentBook(), accessToken = process.env.API_ACCESS_TOKEN, mirror = new HederaMirrorClient(process.env.HEDERA_MIRROR_NODE || "")) {
   const app = new Hono();
   app.get("/health", (context) => context.json({ status: "ok", mode }));
   app.use("/api/*", async (context, next) => {
@@ -47,7 +48,20 @@ export function createApp(platform: LiquidityPlatform, mode: "demo" | "testnet",
     catch (error) { return context.json({ error: message(error) }, 400); }
   });
   app.post("/api/intents/:id/confirm", async (context) => {
-    try { const body = await context.req.json(); return context.json(intents.confirm(context.req.param("id"), body.transactionId)); }
+    try {
+      const body = await context.req.json();
+      if (mode === "testnet") {
+        const verification = await mirror.verifyTransaction(body.transactionId);
+        if (!verification.ok) {
+          const intent = intents.get(context.req.param("id"));
+          if (intent?.status === "submitted") intents.fail(intent.id, verification.reason || "Mirror node rejected the transaction");
+          return context.json({ error: verification.reason || "Transaction verification failed" }, 400);
+        }
+      }
+      const confirmed = intents.confirm(context.req.param("id"), body.transactionId);
+      if (confirmed.kind === "grantKyc") platform.reconcileKyc(String(confirmed.request.securityId), String(confirmed.request.targetId));
+      return context.json(confirmed);
+    }
     catch (error) { return context.json({ error: message(error) }, 400); }
   });
   app.post("/api/intents/issuance", async (context) => {

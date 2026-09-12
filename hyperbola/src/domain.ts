@@ -100,6 +100,13 @@ export class LiquidityPlatform {
     return { tokenId, accountId, eligible: this.kyc.get(tokenId)?.has(accountId) === true };
   }
 
+  reconcileKyc(tokenId: string, accountId: string) {
+    const accounts = this.kyc.get(tokenId) || new Set<string>();
+    accounts.add(accountId);
+    this.kyc.set(tokenId, accounts);
+    this.persist();
+  }
+
   async createRepo(input: Omit<RepoAgreement, "id" | "status" | "transactions" | "lockReference">) {
     requirePositive(input.collateralAmount, "collateralAmount");
     requirePositive(input.principalHbar, "principalHbar");
