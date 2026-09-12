@@ -76,6 +76,7 @@ export class LiquidityPlatform {
   readonly distributions = new Map<Id, Distribution>();
   private readonly kyc = new Map<string, Set<string>>();
   private readonly store: DocumentStore<PlatformSnapshot>;
+  private orderMutation: Promise<void> = Promise.resolve();
 
   constructor(private readonly chain: ChainGateway, store: DocumentStore<PlatformSnapshot> = new MemoryDocumentStore()) {
     this.store = store;
@@ -138,6 +139,12 @@ export class LiquidityPlatform {
   }
 
   async placeOrder(input: Omit<Order, "id" | "remaining" | "status" | "createdAt">) {
+    const mutation = this.orderMutation.then(() => this.placeOrderInternal(input));
+    this.orderMutation = mutation.then(() => undefined, () => undefined);
+    return mutation;
+  }
+
+  private async placeOrderInternal(input: Omit<Order, "id" | "remaining" | "status" | "createdAt">) {
     requirePositive(input.quantity, "quantity");
     requirePositive(input.priceHbar, "priceHbar");
     this.requireEligible(input.tokenId, input.owner);
@@ -161,8 +168,8 @@ export class LiquidityPlatform {
   }
 
   private async match(taker: Order) {
-    const candidates = [...this.orders.values()].filter((maker) => maker.id !== taker.id && maker.status === "open" && maker.tokenId === taker.tokenId && maker.side !== taker.side && this.isEligible(maker.tokenId, maker.owner) && this.isEligible(taker.tokenId, taker.owner) && compatible(taker, maker));
-    candidates.sort((a, b) => taker.side === "buy" ? a.priceHbar - b.priceHbar : b.priceHbar - a.priceHbar);
+    const candidates = [...this.orders.values()].filter((maker) => maker.id !== taker.id && maker.owner !== taker.owner && maker.status === "open" && maker.tokenId === taker.tokenId && maker.side !== taker.side && this.isEligible(maker.tokenId, maker.owner) && this.isEligible(taker.tokenId, taker.owner) && compatible(taker, maker));
+    candidates.sort((a, b) => (taker.side === "buy" ? a.priceHbar - b.priceHbar : b.priceHbar - a.priceHbar) || a.createdAt.localeCompare(b.createdAt));
     for (const maker of candidates) {
       if (!taker.remaining) break;
       const quantity = Math.min(taker.remaining, maker.remaining);

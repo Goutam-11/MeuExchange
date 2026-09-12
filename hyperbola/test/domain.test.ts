@@ -116,3 +116,42 @@ test("testnet confirmation rejects fabricated transactions and marks the intent 
   assert.equal(response.status, 400);
   assert.match((await response.json() as { error: string }).error, /not found/);
 });
+
+test("idempotency key returns the original POST result", async () => {
+  const app = createApp(new LiquidityPlatform(chain), "demo");
+  const request = { method: "POST", headers: { "content-type": "application/json", "idempotency-key": "issuance-1" }, body: JSON.stringify({ assetType: "fixed-income-note", name: "MEU Note", symbol: "MEUN", isin: "TEST00000002", currency: "USD", units: "1000", configId: "0.0.123456", configVersion: 1 }) };
+  const first = await app.request("http://local/api/intents/issuance", request);
+  const second = await app.request("http://local/api/intents/issuance", request);
+  assert.equal(first.status, 201);
+  assert.equal(second.status, 201);
+  assert.equal((await first.json() as { id: string }).id, (await second.json() as { id: string }).id);
+});
+
+test("crossing orders are serialized when submitted concurrently", async () => {
+  const platform = new LiquidityPlatform(chain);
+  await platform.grantKyc("0.0.1", "seller", "vc-seller");
+  await platform.grantKyc("0.0.1", "buyer", "vc-buyer");
+  const results = await Promise.all([
+    platform.placeOrder({ tokenId: "0.0.1", owner: "seller", side: "sell", quantity: 10, priceHbar: 2 }),
+    platform.placeOrder({ tokenId: "0.0.1", owner: "buyer", side: "buy", quantity: 10, priceHbar: 3 }),
+  ]);
+  assert.equal(platform.trades.size, 1);
+  assert.equal(platform.orders.size, 2);
+  assert.equal(results.every((result) => result.order.status === "filled"), true);
+});
+
+test("matching never self-trades and uses price-time priority", async () => {
+  const platform = new LiquidityPlatform(chain);
+  await platform.grantKyc("0.0.1", "trader", "vc");
+  await platform.placeOrder({ tokenId: "0.0.1", owner: "trader", side: "sell", quantity: 10, priceHbar: 2 });
+  const self = await platform.placeOrder({ tokenId: "0.0.1", owner: "trader", side: "buy", quantity: 10, priceHbar: 3 });
+  assert.equal(self.trades.length, 0);
+  const priority = new LiquidityPlatform(chain);
+  await priority.grantKyc("0.0.1", "first", "vc");
+  await priority.grantKyc("0.0.1", "second", "vc");
+  await priority.grantKyc("0.0.1", "buyer", "vc");
+  await priority.placeOrder({ tokenId: "0.0.1", owner: "first", side: "sell", quantity: 1, priceHbar: 2 });
+  await priority.placeOrder({ tokenId: "0.0.1", owner: "second", side: "sell", quantity: 1, priceHbar: 2 });
+  const fill = await priority.placeOrder({ tokenId: "0.0.1", owner: "buyer", side: "buy", quantity: 1, priceHbar: 2 });
+  assert.equal(fill.trades.at(-1)?.seller, "first");
+});

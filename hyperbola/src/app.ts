@@ -6,7 +6,27 @@ import { HederaMirrorClient } from "./mirror.js";
 
 export function createApp(platform: LiquidityPlatform, mode: "demo" | "testnet", intents = new IntentBook(), accessToken = process.env.API_ACCESS_TOKEN, mirror = new HederaMirrorClient(process.env.HEDERA_MIRROR_NODE || "")) {
   const app = new Hono();
+  const idempotentResponses = new Map<string, { status: number; headers: Headers; body: string }>();
+  const idempotentInFlight = new Map<string, Promise<void>>();
   app.get("/health", (context) => context.json({ status: "ok", mode }));
+  app.use("/api/*", async (context, next) => {
+    if (context.req.method !== "POST") return next();
+    const key = context.req.header("idempotency-key");
+    if (!key) return next();
+    const cacheKey = `${context.req.path}:${key}`;
+    const cached = idempotentResponses.get(cacheKey);
+    if (cached) return new Response(cached.body, { status: cached.status, headers: cached.headers });
+    const inFlight = idempotentInFlight.get(cacheKey);
+    if (inFlight) { await inFlight; const completed = idempotentResponses.get(cacheKey); return completed ? new Response(completed.body, { status: completed.status, headers: completed.headers }) : next(); }
+    const completion = (async () => {
+      await next();
+      const response = context.res;
+      if (response.status < 500) idempotentResponses.set(cacheKey, { status: response.status, headers: new Headers(response.headers), body: await response.clone().text() });
+    })();
+    idempotentInFlight.set(cacheKey, completion);
+    try { await completion; } finally { idempotentInFlight.delete(cacheKey); }
+    return context.res;
+  });
   app.use("/api/*", async (context, next) => {
     if (!accessToken) return next();
     const authorization = context.req.header("authorization");
