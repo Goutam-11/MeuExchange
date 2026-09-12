@@ -1,25 +1,91 @@
 ---
-import '../styles/landing.css';
+import "../styles/landing.css";
 const stages = [
-  {name:'Issuance', description:'Define a note or fund unit, its terms, and eligible participants.', position:'issue'},
-  {name:'Eligibility', description:'Keep investor permissions connected to every asset transfer.', position:'verify'},
-  {name:'Collateral', description:'Explore how tokenised assets can support a repo agreement.', position:'collateral'},
-  {name:'Settlement', description:'Prepare the next transaction for your own wallet to sign.', position:'settlement'},
+  {
+    name: "Issuance",
+    description:
+      "Define a note or fund unit, its terms, and eligible participants.",
+    position: "issue",
+  },
+  {
+    name: "Eligibility",
+    description: "Keep investor permissions connected to every asset transfer.",
+    position: "verify",
+  },
+  {
+    name: "Collateral",
+    description: "Explore how tokenised assets can support a repo agreement.",
+    position: "collateral",
+  },
+  {
+    name: "Settlement",
+    description: "Prepare the next transaction for your own wallet to sign.",
+    position: "settlement",
+  },
 ];
 const applications = [
-  {id:'notes', tab:'Fixed-income notes', audience:'FOR ISSUERS & INVESTORS', title:'A familiar instrument. A new way to move it.', text:'Represent issuer-defined debt as a tokenised note. Keep face value, maturity, investor eligibility, and transfer permissions connected to the instrument.', image:'city', label:'FIXED-INCOME / ATS BOND', facts:[['Instrument','Fixed-income note'],['Token framework','ATS Bond'],['Offering terms','Defined by the issuer']]},
-  {id:'funds', tab:'Fund units', audience:'FOR FUND MANAGERS', title:'Participation, with permissions.', text:'Explore fund units represented through ATS’s equity template. The manager defines the fund documents, valuation policy, and which investors may participate.', image:'city', label:'FUND UNITS / ATS EQUITY', facts:[['Instrument','Tokenised fund unit'],['Token framework','ATS Equity'],['Valuation policy','Defined by the manager']]},
-  {id:'repo', tab:'Repo liquidity', audience:'FOR BORROWERS & LENDERS', title:'Put the next step in motion.', text:'Model a collateral-backed agreement, from a proposed lock to funding and release. Explore the lifecycle before connecting real payment and settlement execution.', image:'city-mesh', label:'COLLATERAL / REPO WORKFLOW', facts:[['Underlying asset','Eligible tokenised note'],['Workflow','Lock → fund → release'],['Current environment','Local demonstration']]},
+  {
+    id: "notes",
+    tab: "Fixed-income notes",
+    audience: "FOR ISSUERS & INVESTORS",
+    title: "A familiar instrument. A new way to move it.",
+    text: "Represent issuer-defined debt as a tokenised note. Keep face value, maturity, investor eligibility, and transfer permissions connected to the instrument.",
+    image: "city",
+    label: "FIXED-INCOME / ATS BOND",
+    facts: [
+      ["Instrument", "Fixed-income note"],
+      ["Token framework", "ATS Bond"],
+      ["Offering terms", "Defined by the issuer"],
+    ],
+  },
+  {
+    id: "funds",
+    tab: "Fund units",
+    audience: "FOR FUND MANAGERS",
+    title: "Participation, with permissions.",
+    text: "Explore fund units represented through ATS’s equity template. The manager defines the fund documents, valuation policy, and which investors may participate.",
+    image: "city",
+    label: "FUND UNITS / ATS EQUITY",
+    facts: [
+      ["Instrument", "Tokenised fund unit"],
+      ["Token framework", "ATS Equity"],
+      ["Valuation policy", "Defined by the manager"],
+    ],
+  },
+  {
+    id: "repo",
+    tab: "Repo liquidity",
+    audience: "FOR BORROWERS & LENDERS",
+    title: "Put the next step in motion.",
+    text: "Model a collateral-backed agreement, from a proposed lock to funding and release. Explore the lifecycle before connecting real payment and settlement execution.",
+    image: "city-mesh",
+    label: "COLLATERAL / REPO WORKFLOW",
+    facts: [
+      ["Underlying asset", "Eligible tokenised note"],
+      ["Workflow", "Lock → fund → release"],
+      ["Current environment", "Local demonstration"],
+    ],
+  },
 ];
 ---
+
 <!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="MEU Exchange connects tokenised notes, fund units, and collateral workflows. Explore a new market for real-world assets on Hedera." />
+    <meta
+      name="description"
+      content="MEU Exchange connects tokenised notes, fund units, and collateral workflows. Explore a new market for real-world assets on Hedera."
+    />
     <meta name="theme-color" content="#191a1c" />
-    <link rel="preload" href="/fonts/dm-sans.woff2" as="font" type="font/woff2" crossorigin />
+    <link
+      rel="preload"
+      href="/fonts/dm-sans.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
     <link rel="preload" href="/images/city.webp" as="image" />
     <title>MEU Exchange — Real assets. New possibilities.</title>
   </head>
@@ -33,66 +99,410 @@ const applications = [
     <a class="skip-link" href="#main">Skip to content</a>
     <header class="site-header">
       <nav class="navigation" aria-label="Main navigation">
-        <a class="wordmark" href="#home" aria-label="MEU Exchange home">meu<span>exchange</span><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1 15 8 8 15 1 8Z"/></svg></a>
-        <button class="menu-toggle" aria-expanded="false" aria-controls="nav-links">Menu <span aria-hidden="true">+</span></button>
-        <div class="nav-links" id="nav-links"><a href="#home" class="active">Home</a><a href="#assets">Our assets</a><a href="#platform">Platform</a><a href="#about">About</a></div>
-        <a class="nav-cta" href="#explore"><svg class="arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h15m-6-6 6 6-6 6"/></svg> Explore demo</a>
+        <a class="wordmark" href="#home" aria-label="MEU Exchange home"
+          >meu<span>exchange</span><svg viewBox="0 0 16 16" aria-hidden="true"
+            ><path d="M8 1 15 8 8 15 1 8Z"></path></svg
+          ></a
+        >
+        <button
+          class="menu-toggle"
+          aria-expanded="false"
+          aria-controls="nav-links"
+          >Menu <span aria-hidden="true">+</span></button
+        >
+        <div class="nav-links" id="nav-links">
+          <a href="#home" class="active">Home</a><a href="#assets">Our assets</a
+          ><a href="#platform">Platform</a><a href="#about">About</a>
+        </div>
+        <a class="nav-cta" href="#explore"
+          ><svg class="arrow" viewBox="0 0 24 24" aria-hidden="true"
+            ><path d="M4 12h15m-6-6 6 6-6 6"></path></svg
+          > Explore demo</a
+        >
       </nav>
     </header>
     <main id="main">
-      <section id="home" class="hero scanner" data-scanner aria-label="Interactive asset landscape">
-        <img class="map-photo" src="/images/city.webp" width="2016" height="1232" alt="Aerial view of a city, connecting physical infrastructure with a digital asset landscape" fetchpriority="high" />
+      <section
+        id="home"
+        class="hero scanner"
+        data-scanner
+        aria-label="Interactive asset landscape"
+      >
+        <img
+          class="map-photo"
+          src="/images/city.webp"
+          width="2016"
+          height="1232"
+          alt="Aerial view of a city, connecting physical infrastructure with a digital asset landscape"
+          fetchpriority="high"
+        />
         <canvas class="scan-canvas" aria-hidden="true"></canvas>
-        <div class="hero-heading"><h1>Real assets.<br class="mobile-break" /> New possibilities.</h1><p>A more connected market for the real economy.</p></div>
-        <div class="scan-controls"><button class="scan-toggle" aria-pressed="false"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3v10M11 3v10"/></svg><span>Pause scan</span></button><span class="scan-hint">Move to discover ↗</span></div>
-        <div class="hero-caption"><span class="status-dot"></span> Interactive visualisation <span>/</span> Illustrative, not live asset data</div>
-        <a class="scroll-cue" href="#about" aria-label="Discover MEU Exchange"><svg class="arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v17m-6-6 6 6 6-6"/></svg></a>
+        <div class="hero-heading">
+          <h1>Real assets.<br class="mobile-break" /> New possibilities.</h1><p>
+            A more connected market for the real economy.
+          </p>
+        </div>
+        <div class="scan-controls">
+          <button class="scan-toggle" aria-pressed="false"
+            ><svg viewBox="0 0 16 16" aria-hidden="true"
+              ><path d="M5 3v10M11 3v10"></path></svg
+            ><span>Pause scan</span></button
+          ><span class="scan-hint">Move to discover ↗</span>
+        </div>
+        <div class="hero-caption">
+          <span class="status-dot"></span> Interactive visualisation <span
+            >/</span
+          > Illustrative, not live asset data
+        </div>
+        <a class="scroll-cue" href="#about" aria-label="Discover MEU Exchange"
+          ><svg class="arrow" viewBox="0 0 24 24" aria-hidden="true"
+            ><path d="M12 3v17m-6-6 6 6 6-6"></path></svg
+          ></a
+        >
       </section>
       <section class="intro section-frame" id="about">
-        <h2>The real world holds value.<br />We’re building the market<br />that helps it move.</h2>
-        <div class="intro-bottom"><span class="section-name"><i></i> WHY MEU EXCHANGE</span><p>From tokenised notes to fund units. Connect issuance, investor eligibility, collateral, and transfers in one continuous asset lifecycle.</p></div>
-        <span class="frame-node left"></span><span class="frame-node right"></span>
-      </section>
-      <section class="asset-landscape scanner" data-scanner id="platform" aria-labelledby="landscape-title">
-        <img class="map-photo" src="/images/city.webp" width="2016" height="1232" loading="lazy" alt="City architecture with interactive asset lifecycle annotations" />
-        <canvas class="scan-canvas" aria-hidden="true"></canvas>
-        <div class="pixel-edge" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
-        <h2 id="landscape-title">One asset.<br />A world of connections.</h2>
-        <div class="asset-pins">{stages.map((stage,i)=><button class={`asset-pin ${stage.position}`} data-stage={i} aria-expanded={i===0 ? 'true':'false'}><span class="pin-anchor" aria-hidden="true"></span><span class="pin-content"><span class="pin-title">{stage.name}<span aria-hidden="true">↗</span></span><span class="pin-description">{stage.description}</span></span></button>)}</div>
-        <span class="landscape-caption">SELECT A POINT TO EXPLORE THE LIFECYCLE</span>
-      </section>
-      <section class="connection section-frame" aria-labelledby="connection-title">
-        <div class="section-heading"><h2 id="connection-title">From real-world value<br />to digital possibility.</h2><p>MEU brings the pieces of tokenised finance together. Assets have terms. Participants have permissions. Every next step has a place.</p></div>
-        <div class="connection-graphic" aria-label="An asset connects to issuance, eligibility, repo collateral, and transfer workflows">
-          <svg class="connection-lines" viewBox="0 0 1000 360" preserveAspectRatio="none" aria-hidden="true"><path d="M120 80H360L500 180 640 80H880M120 280H360L500 180 640 280H880M500 0V360"/><path class="flow-line" d="M120 80H360L500 180 640 280H880"/></svg>
-          <div class="connection-center"><div class="diamond-stack" aria-hidden="true"><i></i><i></i><i></i></div><strong>meu</strong><span>EXCHANGE</span></div>
-          <span class="connection-label top-left">Issuer-defined assets</span><span class="connection-label bottom-left">Verified participants</span><span class="connection-label top-right">Collateral workflows</span><span class="connection-label bottom-right">Wallet-signed transfers</span>
+        <h2>
+          The real world holds value.<br />We’re building the market<br />that
+          helps it move.
+        </h2>
+        <div class="intro-bottom">
+          <span class="section-name"><i></i> WHY MEU EXCHANGE</span><p>
+            From tokenised notes to fund units. Connect issuance, investor
+            eligibility, collateral, and transfers in one continuous asset
+            lifecycle.
+          </p>
         </div>
-        <div class="tech-strip"><span>BUILT AROUND</span><span class="hedera-mark">ℏ <b>Hedera</b></span><span>Asset Tokenization Studio</span><span>Non-custodial signing ↗</span></div>
+        <span class="frame-node left"></span><span class="frame-node right"
+        ></span>
       </section>
-      <section class="applications section-frame" id="assets" aria-labelledby="applications-title">
-        <div class="section-heading"><h2 id="applications-title">Real assets.<br />Real applications.</h2><p>Start with the instruments that make the real economy work. Explore our proposed asset types and the workflows taking shape around them.</p></div>
-        <div class="application-tabs" role="tablist" aria-label="Asset applications">{applications.map((app,i)=><button id={`tab-${app.id}`} role="tab" aria-selected={i===0} aria-controls={`panel-${app.id}`} tabindex={i===0?0:-1} data-tab={app.id}>{app.tab}<span aria-hidden="true">↗</span></button>)}</div>
-        {applications.map((app,i)=><div class="application-panel" id={`panel-${app.id}`} role="tabpanel" aria-labelledby={`tab-${app.id}`} tabindex="0" hidden={i!==0}>
-          <div class={`application-image ${app.id}-image`}><img src={`/images/${app.image}.webp`} alt={`Illustrative city landscape for ${app.tab.toLowerCase()}`} loading="lazy" width="2016" height="1232"/><span class="image-bracket"></span><span class="image-label">{app.label}</span></div>
-          <div class="application-content"><span class="small-label">{app.audience}</span><h3>{app.title}</h3><p>{app.text}</p><dl>{app.facts.map(([label,value])=><div><dt>{label}</dt><dd>{value}</dd></div>)}</dl><a class="text-link" href="#explore">Explore the workflow <svg class="arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h15m-6-6 6 6-6 6"/></svg></a></div>
-        </div>)}
-        <p class="section-footnote">Proposed instrument types. No live offerings are listed on MEU Exchange yet.</p>
+      <section
+        class="asset-landscape scanner"
+        data-scanner
+        id="platform"
+        aria-labelledby="landscape-title"
+      >
+        <img
+          class="map-photo"
+          src="/images/city.webp"
+          width="2016"
+          height="1232"
+          loading="lazy"
+          alt="City architecture with interactive asset lifecycle annotations"
+        />
+        <canvas class="scan-canvas" aria-hidden="true"></canvas>
+        <div class="pixel-edge" aria-hidden="true">
+          <i></i><i></i><i></i><i></i>
+        </div>
+        <h2 id="landscape-title">One asset.<br />A world of connections.</h2>
+        <div class="asset-pins">
+          {
+            stages.map((stage, i) => (
+              <button
+                class={`asset-pin ${stage.position}`}
+                data-stage={i}
+                aria-expanded={i === 0 ? "true" : "false"}
+              >
+                <>
+                  <span class="pin-anchor" aria-hidden="true" />
+                  <span class="pin-content">
+                    <>
+                      <span class="pin-title">
+                        {stage.name}
+                        <span aria-hidden="true">↗</span>
+                      </span>
+                      <span class="pin-description">{stage.description}</span>
+                    </>
+                  </span>
+                </>
+              </button>
+            ))
+          }
+        </div>
+        <span class="landscape-caption"
+          >SELECT A POINT TO EXPLORE THE LIFECYCLE</span
+        >
       </section>
-      <section class="demo-section section-frame" id="explore" aria-labelledby="demo-title">
-        <div class="section-heading"><h2 id="demo-title">See the lifecycle.<br />Make the next move.</h2><p>A small, interactive look at the market we’re building. Walk a sample note through the asset lifecycle.</p></div>
+      <section
+        class="connection section-frame"
+        aria-labelledby="connection-title"
+      >
+        <div class="section-heading">
+          <h2 id="connection-title">
+            From real-world value<br />to digital possibility.
+          </h2><p>
+            MEU brings the pieces of tokenised finance together. Assets have
+            terms. Participants have permissions. Every next step has a place.
+          </p>
+        </div>
+        <div
+          class="connection-graphic"
+          aria-label="An asset connects to issuance, eligibility, repo collateral, and transfer workflows"
+        >
+          <svg
+            class="connection-lines"
+            viewBox="0 0 1000 360"
+            preserveAspectRatio="none"
+            aria-hidden="true"
+            ><path
+              d="M120 80H360L500 180 640 80H880M120 280H360L500 180 640 280H880M500 0V360"
+            ></path><path class="flow-line" d="M120 80H360L500 180 640 280H880"
+            ></path></svg
+          >
+          <div class="connection-center">
+            <div class="diamond-stack" aria-hidden="true">
+              <i></i><i></i><i></i>
+            </div><strong>meu</strong><span>EXCHANGE</span>
+          </div>
+          <span class="connection-label top-left">Issuer-defined assets</span
+          ><span class="connection-label bottom-left"
+            >Verified participants</span
+          ><span class="connection-label top-right">Collateral workflows</span
+          ><span class="connection-label bottom-right"
+            >Wallet-signed transfers</span
+          >
+        </div>
+        <div class="tech-strip">
+          <span>BUILT AROUND</span><span class="hedera-mark"
+            >ℏ <b>Hedera</b></span
+          ><span>Asset Tokenization Studio</span><span
+            >Non-custodial signing ↗</span>
+        </div>
+      </section>
+      <section
+        class="applications section-frame"
+        id="assets"
+        aria-labelledby="applications-title"
+      >
+        <div class="section-heading">
+          <h2 id="applications-title">
+            Real assets.<br />Real applications.
+          </h2><p>
+            Start with the instruments that make the real economy work. Explore
+            our proposed asset types and the workflows taking shape around them.
+          </p>
+        </div>
+        <div
+          class="application-tabs"
+          role="tablist"
+          aria-label="Asset applications"
+        >
+          {
+            applications.map((app, i) => (
+              <button
+                id={`tab-${app.id}`}
+                role="tab"
+                aria-selected={i === 0}
+                aria-controls={`panel-${app.id}`}
+                tabindex={i === 0 ? 0 : -1}
+                data-tab={app.id}
+              >
+                {app.tab}
+                <span aria-hidden="true">↗</span>
+              </button>
+            ))
+          }
+        </div>
+        {
+          applications.map((app, i) => (
+            <div
+              class="application-panel"
+              id={`panel-${app.id}`}
+              role="tabpanel"
+              aria-labelledby={`tab-${app.id}`}
+              tabindex="0"
+              hidden={i !== 0}
+            >
+              <div class={`application-image ${app.id}-image`}>
+                <>
+                  <img
+                    src={`/images/${app.image}.webp`}
+                    alt={`Illustrative city landscape for ${app.tab.toLowerCase()}`}
+                    loading="lazy"
+                    width="2016"
+                    height="1232"
+                  />
+                  <span class="image-bracket" />
+                  <span class="image-label">{app.label}</span>
+                </>
+              </div>
+              <div class="application-content">
+                <>
+                  <span class="small-label">{app.audience}</span>
+                  <h3>{app.title}</h3>
+                  <p>{app.text}</p>
+                  <dl>
+                    {app.facts.map(([label, value]) => (
+                      <div>
+                        <dt>{label}</dt>
+                        <dd>{value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                  <a class="text-link" href="#explore">
+                    Explore the workflow{" "}
+                    <svg class="arrow" viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M4 12h15m-6-6 6 6-6 6" />
+                    </svg>
+                  </a>
+                </>
+              </div>
+            </div>
+          ))
+        }
+        <p class="section-footnote">
+          Proposed instrument types. No live offerings are listed on MEU
+          Exchange yet.
+        </p>
+      </section>
+      <section
+        class="demo-section section-frame"
+        id="explore"
+        aria-labelledby="demo-title"
+      >
+        <div class="section-heading">
+          <h2 id="demo-title">See the lifecycle.<br />Make the next move.</h2><p
+          >
+            A small, interactive look at the market we’re building. Walk a
+            sample note through the asset lifecycle.
+          </p>
+        </div>
         <div class="demo-workspace">
-          <div class="demo-summary"><span class="small-label"><i class="status-dot"></i> INTERACTIVE DEMO</span><h3>MEU Sample Note</h3><p>Illustrative instrument · No funds or transactions are sent.</p><div class="demo-asset-mark" aria-hidden="true"><svg viewBox="0 0 200 200"><path d="m100 20 80 45v75l-80 45-80-45V65Zm0 0v80m-80-35 80 35 80-35m-80 35v85m-80-45 80-40 80 40"/></svg></div><span class="demo-caption">A CLEAR PATH FROM ASSET TO ACTION</span></div>
-          <div class="demo-flow"><ol class="workflow-steps">{['Define the instrument','Verify the participant','Propose collateral','Prepare the transfer'].map((step,i)=><li data-demo-step={i} class={i===0?'current':''}><span class="step-number">0{i+1}</span><span>{step}</span><span class="step-state">{i===0?'Ready':'Upcoming'}</span></li>)}</ol><div class="demo-next"><p id="demo-description" aria-live="polite">Start with an issuer-defined note and its offering terms.</p><button class="dark-button" id="demo-advance"><span>Verify participant</span><svg class="arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h15m-6-6 6 6-6 6"/></svg></button><button class="reset-button" id="demo-reset">Reset demo</button></div></div>
+          <div class="demo-summary">
+            <span class="small-label"
+              ><i class="status-dot"></i> INTERACTIVE DEMO</span
+            ><h3>MEU Sample Note</h3><p>
+              Illustrative instrument · No funds or transactions are sent.
+            </p><div class="demo-asset-mark" aria-hidden="true">
+              <svg viewBox="0 0 200 200"
+                ><path
+                  d="m100 20 80 45v75l-80 45-80-45V65Zm0 0v80m-80-35 80 35 80-35m-80 35v85m-80-45 80-40 80 40"
+                ></path></svg>
+            </div><span class="demo-caption"
+              >A CLEAR PATH FROM ASSET TO ACTION</span>
+          </div>
+          <div class="demo-flow">
+            <ol class="workflow-steps">
+              {
+                [
+                  "Define the instrument",
+                  "Verify the participant",
+                  "Propose collateral",
+                  "Prepare the transfer",
+                ].map((step, i) => (
+                  <li data-demo-step={i} class={i === 0 ? "current" : ""}>
+                    <>
+                      <span class="step-number">0{i + 1}</span>
+                      <span>{step}</span>
+                      <span class="step-state">
+                        {i === 0 ? "Ready" : "Upcoming"}
+                      </span>
+                    </>
+                  </li>
+                ))
+              }
+            </ol><div class="demo-next">
+              <p id="demo-description" aria-live="polite">
+                Start with an issuer-defined note and its offering terms.
+              </p><button class="dark-button" id="demo-advance"
+                ><span>Verify participant</span><svg
+                  class="arrow"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                  ><path d="M4 12h15m-6-6 6 6-6 6"></path></svg
+                ></button
+              ><button class="reset-button" id="demo-reset">Reset demo</button>
+            </div>
+          </div>
         </div>
       </section>
       <section class="access-section section-frame" id="network">
-        <div class="section-heading"><h2>One market layer.<br />Two ways to connect.</h2><p>For the teams shaping an offering and the developers connecting the next step.</p></div>
-        <div class="access-columns"><article><span class="small-label">ISSUER WORKFLOWS</span><h3>Bring your asset.<br />Define its possibilities.</h3><p>Explore supported instruments and the terms an issuer needs to provide, from maturity to investor eligibility.</p><a class="text-link" href="#assets">Discover our asset types <span aria-hidden="true">→</span></a></article><article><span class="small-label">DEVELOPER INFRASTRUCTURE</span><h3>Connect the workflow.<br />Keep your own keys.</h3><p>Build around transaction intents for ATS on Hedera. Wallet signing and live deployment are the next integration steps.</p><details><summary>View integration overview <span aria-hidden="true">+</span></summary><div class="integration-details"><p>The Hono backend prepares issuance, KYC, lock, release, and transfer intents. The current API uses in-memory demo state.</p><code>POST /api/intents/issuance<br />POST /api/intents/kyc<br />POST /api/intents/lock<br />POST /api/intents/release<br />POST /api/intents/transfer</code><p>Live settlement, payment execution, and transaction confirmation are not yet connected.</p></div></details></article></div>
+        <div class="section-heading">
+          <h2>One market layer.<br />Two ways to connect.</h2><p>
+            For the teams shaping an offering and the developers connecting the
+            next step.
+          </p>
+        </div>
+        <div class="access-columns">
+          <article>
+            <span class="small-label">ISSUER WORKFLOWS</span><h3>
+              Bring your asset.<br />Define its possibilities.
+            </h3><p>
+              Explore supported instruments and the terms an issuer needs to
+              provide, from maturity to investor eligibility.
+            </p><a class="text-link" href="#assets"
+              >Discover our asset types <span aria-hidden="true">→</span></a>
+          </article><article>
+            <span class="small-label">DEVELOPER INFRASTRUCTURE</span><h3>
+              Connect the workflow.<br />Keep your own keys.
+            </h3><p>
+              Build around transaction intents for ATS on Hedera. Wallet signing
+              and live deployment are the next integration steps.
+            </p><details>
+              <summary
+                >View integration overview <span aria-hidden="true">+</span
+                ></summary
+              ><div class="integration-details">
+                <p>
+                  The Hono backend prepares issuance, KYC, lock, release, and
+                  transfer intents. The current API uses in-memory demo state.
+                </p><code
+                  >POST /api/intents/issuance<br />POST /api/intents/kyc<br
+                  />POST /api/intents/lock<br />POST /api/intents/release<br
+                  />POST /api/intents/transfer</code
+                ><p>
+                  Live settlement, payment execution, and transaction
+                  confirmation are not yet connected.
+                </p>
+              </div>
+            </details>
+          </article>
+        </div>
       </section>
-      <section class="closing scanner" data-scanner aria-labelledby="closing-title"><img class="map-photo" src="/images/city.webp" alt="" width="2016" height="1232" loading="lazy"/><canvas class="scan-canvas" aria-hidden="true"></canvas><div class="closing-content"><h2 id="closing-title">The value is real.<br />The possibilities are open.</h2><a class="light-button" href="#explore">Explore MEU Exchange <svg class="arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h15m-6-6 6 6-6 6"/></svg></a></div></section>
+      <section
+        class="closing scanner"
+        data-scanner
+        aria-labelledby="closing-title"
+      >
+        <img
+          class="map-photo"
+          src="/images/city.webp"
+          alt=""
+          width="2016"
+          height="1232"
+          loading="lazy"
+        /><canvas class="scan-canvas" aria-hidden="true"></canvas><div
+          class="closing-content"
+        >
+          <h2 id="closing-title">
+            The value is real.<br />The possibilities are open.
+          </h2><a class="light-button" href="#explore"
+            >Explore MEU Exchange <svg
+              class="arrow"
+              viewBox="0 0 24 24"
+              aria-hidden="true"><path d="M4 12h15m-6-6 6 6-6 6"></path></svg
+            ></a>
+        </div>
+      </section>
     </main>
-    <footer class="site-footer"><div class="footer-top"><a class="wordmark" href="#home">meu<span>exchange</span></a><p>A market for real-world possibilities.</p><div><a href="#assets">Our assets</a><a href="#platform">Platform</a><a href="#network">Developers</a><a href="#about">About MEU</a></div></div><div class="footer-statement">Real world.<br /><span>Connected.</span></div><div class="footer-bottom"><span>© {new Date().getFullYear()} MEU Exchange</span><span>In development · Hedera Testnet</span><a href="#home">Back to top ↑</a></div></footer>
-    <script>import '../scripts/landing';</script>
+    <footer class="site-footer">
+      <div class="footer-top">
+        <a class="wordmark" href="#home">meu<span>exchange</span></a><p>
+          A market for real-world possibilities.
+        </p><div>
+          <a href="#assets">Our assets</a><a href="#platform">Platform</a><a
+            href="#network">Developers</a
+          ><a href="#about">About MEU</a>
+        </div>
+      </div><div class="footer-statement">
+        Real world.<br /><span>Connected.</span>
+      </div><div class="footer-bottom">
+        <span>© {new Date().getFullYear()} MEU Exchange</span><span
+          >In development · Hedera Testnet</span
+        ><a href="#home">Back to top ↑</a>
+      </div>
+    </footer>
+    <script>
+      import "../scripts/landing";
+    </script>
   </body>
 </html>

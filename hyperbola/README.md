@@ -40,8 +40,12 @@ Visual decisions are recorded in [DESIGN.md](DESIGN.md). Reference-image provena
 
 ## Hedera ATS integration
 
-With `MODE=testnet`, the gateway initializes the ATS SDK using the configured resolver/factory. Signing is intentionally delegated to a participant's ATS-compatible wallet or existing custodian integration; the API never accepts or stores a private key. Transaction-submitting operations fail closed until that signer connection is supplied.
+With `MODE=testnet`, the gateway validates that operations require an external ATS-compatible signer and fails explicitly before any local state is marked settled. The backend does not pretend to submit ATS transactions without a signer. Signing is delegated to a participant's wallet or existing custodian integration; the API never accepts or stores a private key.
 
-The intent routes make that delegation concrete: they persist an `awaiting_signature` request payload using ATS's `CreateBondRequest`/`CreateEquityRequest`, `GrantKycRequest`, `LockRequest`, `ReleaseRequest`, or `TransferRequest` field shapes. A wallet or signing service executes the matching ATS SDK call and returns its Hedera transaction ID for confirmation.
+The intent routes make that delegation concrete: they persist an `awaiting_signature` request payload using ATS's `CreateBondRequest`/`CreateEquityRequest`, `GrantKycRequest`, `LockRequest`, `ReleaseRequest`, or `TransferRequest` field shapes. `POST /api/intents/:id/sign` records the wallet signature, `POST /api/intents/:id/submit` records the Hedera transaction ID, and `POST /api/intents/:id/confirm` closes the lifecycle after finality. The dashboard exposes those three steps.
+
+Set `API_ACCESS_TOKEN` to require `Authorization: Bearer <token>` on every `/api/*` route. The dashboard reads an optional `meu-api-token` value from browser `localStorage` for that bearer header. The server persists platform and intent state as atomic JSON files at `STATE_FILE` (default `./var/meu-state.json`); isolated tests can still construct the app with memory stores.
+
+Production startup fails closed if `NODE_ENV=production` is set without `API_ACCESS_TOKEN`.
 
 The configured Testnet endpoints and example resolver/factory IDs follow the [ATS SDK integration guide](https://github.com/hashgraph/asset-tokenization-studio/blob/main/docs/ats/developer-guides/sdk-integration.md). Deploying a private ATS deployment requires updating the two addresses from its generated deployment manifest.

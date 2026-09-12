@@ -3,12 +3,23 @@ import { LiquidityPlatform } from "./domain.js";
 import { offeredAssetTypes } from "./assets.js";
 import { IntentBook } from "./intents.js";
 
-export function createApp(platform: LiquidityPlatform, mode: "demo" | "testnet", intents = new IntentBook()) {
+export function createApp(platform: LiquidityPlatform, mode: "demo" | "testnet", intents = new IntentBook(), accessToken = process.env.API_ACCESS_TOKEN) {
   const app = new Hono();
   app.get("/health", (context) => context.json({ status: "ok", mode }));
+  app.use("/api/*", async (context, next) => {
+    if (!accessToken) return next();
+    const authorization = context.req.header("authorization");
+    if (authorization !== `Bearer ${accessToken}`) return context.json({ error: "Authentication required" }, 401);
+    return next();
+  });
   app.get("/api/state", (context) => context.json(platform.state()));
   app.get("/api/assets", (context) => context.json({ assets: offeredAssetTypes, disclaimer: "Instrument terms and legal approvals are issuer supplied." }));
   app.get("/api/intents", (context) => context.json({ intents: intents.all() }));
+  app.get("/api/intents/:id", (context) => {
+    const intent = intents.get(context.req.param("id"));
+    return intent ? context.json(intent) : context.json({ error: "Intent not found" }, 404);
+  });
+  app.get("/api/kyc/status", (context) => context.json(platform.kycStatus(context.req.query("tokenId") || "", context.req.query("accountId") || "")));
   app.get("/api/dashboard", (context) => context.json({
     mode,
     network: "hedera-testnet",
@@ -18,6 +29,18 @@ export function createApp(platform: LiquidityPlatform, mode: "demo" | "testnet",
     state: platform.state(),
     intents: intents.all()
   }));
+  app.post("/api/intents/:id/sign", async (context) => {
+    try { const body = await context.req.json(); return context.json(intents.sign(context.req.param("id"), body.accountId, body.signature)); }
+    catch (error) { return context.json({ error: message(error) }, 400); }
+  });
+  app.post("/api/intents/:id/submit", async (context) => {
+    try { const body = await context.req.json(); return context.json(intents.submit(context.req.param("id"), body.transactionId)); }
+    catch (error) { return context.json({ error: message(error) }, 400); }
+  });
+  app.post("/api/intents/:id/confirm", async (context) => {
+    try { const body = await context.req.json(); return context.json(intents.confirm(context.req.param("id"), body.transactionId)); }
+    catch (error) { return context.json({ error: message(error) }, 400); }
+  });
   app.post("/api/intents/issuance", async (context) => {
     try { return context.json(intents.issue(await context.req.json()), 201); }
     catch (error) { return context.json({ error: message(error) }, 400); }

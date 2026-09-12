@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { LiquidityPlatform, type ChainGateway, type RepoAgreement, type Trade } from "../src/domain.js";
 import { createApp } from "../src/app.js";
+import { AtsGateway } from "../src/gateway.js";
 
 const chain: ChainGateway = {
   grantKyc: async () => "kyc-1",
@@ -20,11 +21,22 @@ test("repo can lock, fund, and release collateral", async () => {
 
 test("crossing orders settle at the resting order price", async () => {
   const platform = new LiquidityPlatform(chain);
+  await platform.grantKyc("0.0.1", "seller", "vc-seller");
+  await platform.grantKyc("0.0.1", "buyer", "vc-buyer");
   await platform.placeOrder({ tokenId: "0.0.1", owner: "seller", side: "sell", quantity: 50, priceHbar: 2 });
   const result = await platform.placeOrder({ tokenId: "0.0.1", owner: "buyer", side: "buy", quantity: 50, priceHbar: 3 });
   assert.equal(result.order.status, "filled");
   assert.equal(result.trades[0].priceHbar, 2);
   assert.equal(result.trades[0].settlementReference, "trade-1");
+});
+
+test("unverified accounts cannot place or match orders", async () => {
+  const platform = new LiquidityPlatform(chain);
+  await assert.rejects(() => platform.placeOrder({ tokenId: "0.0.1", owner: "unverified", side: "sell", quantity: 1, priceHbar: 1 }), /not KYC eligible/);
+});
+
+test("testnet gateway fails explicitly until an external signer submits ATS work", async () => {
+  await assert.rejects(() => new AtsGateway("testnet").grantKyc("0.0.1", "0.0.2", "vc"), /prepared but not submitted/);
 });
 
 test("Hono exposes health without a network listener", async () => {
@@ -51,4 +63,22 @@ test("Hono prepares a non-custodial ATS bond issuance intent", async () => {
   assert.equal(body.kind, "createBond");
   assert.equal(body.status, "awaiting_signature");
   assert.equal(body.request.internalKycActivated, true);
+});
+
+test("intent signing loop records a signature, submission, and confirmation", async () => {
+  const app = createApp(new LiquidityPlatform(chain), "demo");
+  const created = await app.request("http://local/api/intents/issuance", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ assetType: "fixed-income-note", name: "MEU Note", symbol: "MEUN", isin: "TEST00000002", currency: "USD", units: "1000", configId: "0.0.123456", configVersion: 1, ownerAccount: "0.0.42" }) });
+  const intent = await created.json() as { id: string };
+  const signed = await app.request(`http://local/api/intents/${intent.id}/sign`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ accountId: "0.0.42", signature: "0xsigned" }) });
+  assert.equal((await signed.json() as { status: string }).status, "signed");
+  const submitted = await app.request(`http://local/api/intents/${intent.id}/submit`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ transactionId: "0.0.123@1.2.3" }) });
+  assert.equal((await submitted.json() as { status: string }).status, "submitted");
+  const confirmed = await app.request(`http://local/api/intents/${intent.id}/confirm`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ transactionId: "0.0.123@1.2.3" }) });
+  assert.equal((await confirmed.json() as { status: string }).status, "confirmed");
+});
+
+test("configured API access token protects API routes", async () => {
+  const app = createApp(new LiquidityPlatform(chain), "demo", undefined, "secret-token");
+  assert.equal((await app.request("http://local/api/dashboard")).status, 401);
+  assert.equal((await app.request("http://local/api/dashboard", { headers: { authorization: "Bearer secret-token" } })).status, 200);
 });

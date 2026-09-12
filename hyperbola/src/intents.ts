@@ -1,4 +1,5 @@
 import { offeredAssetTypes } from "./assets.js";
+import { MemoryDocumentStore, type DocumentStore } from "./state.js";
 
 export type IntentKind = "createBond" | "createEquity" | "grantKyc" | "lock" | "release" | "transfer";
 
@@ -6,14 +7,21 @@ export interface TransactionIntent {
   id: string;
   kind: IntentKind;
   network: "testnet";
-  status: "awaiting_signature";
+  status: "awaiting_signature" | "signed" | "submitted" | "confirmed" | "failed";
   sdk: "@hashgraph/asset-tokenization-sdk";
   request: Record<string, unknown>;
   createdAt: string;
+  signedBy?: string;
+  signature?: string;
+  transactionId?: string;
+  confirmedAt?: string;
 }
 
 export class IntentBook {
   private readonly intents = new Map<string, TransactionIntent>();
+  constructor(private readonly store: DocumentStore<TransactionIntent[]> = new MemoryDocumentStore()) {
+    store.load()?.forEach((intent) => this.intents.set(intent.id, intent));
+  }
 
   issue(input: { assetType: string; name: string; symbol: string; isin: string; currency: string; units: string; configId: string; configVersion: number; maturityDate?: string; nominalValue?: string; ownerAccount?: string }) {
     const asset = offeredAssetTypes.find((item) => item.id === input.assetType);
@@ -44,11 +52,38 @@ export class IntentBook {
   }
 
   all() { return [...this.intents.values()]; }
+  get(id: string) { return this.intents.get(id); }
+  sign(id: string, accountId: string, signature: string) {
+    const intent = this.must(id);
+    if (!accountId || !signature) throw new Error("accountId and signature are required");
+    if (intent.status !== "awaiting_signature") throw new Error("Only awaiting_signature intents can be signed");
+    const owner = intent.request.diamondOwnerAccount;
+    if (typeof owner === "string" && owner && owner !== accountId) throw new Error("Only the intent owner can sign this request");
+    intent.status = "signed"; intent.signedBy = accountId; intent.signature = signature; this.persist();
+    return intent;
+  }
+  submit(id: string, transactionId: string) {
+    const intent = this.must(id);
+    if (!transactionId) throw new Error("transactionId is required");
+    if (intent.status !== "signed") throw new Error("Sign the intent before submitting its transaction reference");
+    intent.status = "submitted"; intent.transactionId = transactionId; this.persist();
+    return intent;
+  }
+  confirm(id: string, transactionId: string) {
+    const intent = this.must(id);
+    if (!transactionId) throw new Error("transactionId is required");
+    if (intent.status !== "submitted") throw new Error("Submit the transaction reference before confirming it");
+    intent.status = "confirmed"; intent.transactionId = transactionId; intent.confirmedAt = new Date().toISOString(); this.persist();
+    return intent;
+  }
   private save(kind: IntentKind, request: Record<string, unknown>) {
     const intent: TransactionIntent = { id: `intent_${crypto.randomUUID()}`, kind, network: "testnet", status: "awaiting_signature", sdk: "@hashgraph/asset-tokenization-sdk", request, createdAt: new Date().toISOString() };
     this.intents.set(intent.id, intent);
+    this.persist();
     return intent;
   }
+  private must(id: string) { const intent = this.intents.get(id); if (!intent) throw new Error("Intent not found"); return intent; }
+  private persist() { this.store.save([...this.intents.values()]); }
 }
 
 function bondRequest(input: { name: string; symbol: string; isin: string; currency: string; units: string; configId: string; configVersion: number; maturityDate?: string; nominalValue?: string; ownerAccount?: string }) {

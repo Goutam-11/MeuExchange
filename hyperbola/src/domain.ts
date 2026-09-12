@@ -1,3 +1,5 @@
+import { MemoryDocumentStore, type DocumentStore } from "./state.js";
+
 export type Id = string;
 
 export type RepoStatus = "collateral_locked" | "funded" | "released" | "defaulted";
@@ -50,6 +52,14 @@ export interface Distribution {
   status: "draft" | "submitted";
 }
 
+export interface PlatformSnapshot {
+  repos: RepoAgreement[];
+  orders: Order[];
+  trades: Trade[];
+  distributions: Distribution[];
+  kyc: Array<[string, string[]]>;
+}
+
 export interface ChainGateway {
   grantKyc(tokenId: string, accountId: string, vcData: string): Promise<string>;
   lockCollateral(input: Pick<RepoAgreement, "tokenId" | "borrower" | "collateralAmount" | "maturityAt">): Promise<string>;
@@ -64,12 +74,30 @@ export class LiquidityPlatform {
   readonly orders = new Map<Id, Order>();
   readonly trades = new Map<Id, Trade>();
   readonly distributions = new Map<Id, Distribution>();
+  private readonly kyc = new Map<string, Set<string>>();
+  private readonly store: DocumentStore<PlatformSnapshot>;
 
-  constructor(private readonly chain: ChainGateway) {}
+  constructor(private readonly chain: ChainGateway, store: DocumentStore<PlatformSnapshot> = new MemoryDocumentStore()) {
+    this.store = store;
+    const snapshot = store.load();
+    snapshot?.repos.forEach((repo) => this.repos.set(repo.id, repo));
+    snapshot?.orders.forEach((order) => this.orders.set(order.id, order));
+    snapshot?.trades.forEach((trade) => this.trades.set(trade.id, trade));
+    snapshot?.distributions.forEach((distribution) => this.distributions.set(distribution.id, distribution));
+    snapshot?.kyc.forEach(([tokenId, accounts]) => this.kyc.set(tokenId, new Set(accounts)));
+  }
 
   async grantKyc(tokenId: string, accountId: string, vcData: string) {
     const transactionId = await this.chain.grantKyc(tokenId, accountId, vcData);
+    const accounts = this.kyc.get(tokenId) || new Set<string>();
+    accounts.add(accountId);
+    this.kyc.set(tokenId, accounts);
+    this.persist();
     return { tokenId, accountId, transactionId };
+  }
+
+  kycStatus(tokenId: string, accountId: string) {
+    return { tokenId, accountId, eligible: this.kyc.get(tokenId)?.has(accountId) === true };
   }
 
   async createRepo(input: Omit<RepoAgreement, "id" | "status" | "transactions" | "lockReference">) {
@@ -80,6 +108,7 @@ export class LiquidityPlatform {
     agreement.lockReference = await this.chain.lockCollateral(agreement);
     agreement.transactions.push(agreement.lockReference);
     this.repos.set(agreement.id, agreement);
+    this.persist();
     return agreement;
   }
 
@@ -87,6 +116,7 @@ export class LiquidityPlatform {
     const repo = this.mustRepo(repoId);
     if (repo.status !== "collateral_locked") throw new Error("Only collateral_locked repo agreements can be funded");
     repo.status = "funded";
+    this.persist();
     return repo;
   }
 
@@ -96,30 +126,35 @@ export class LiquidityPlatform {
     const transactionId = await this.chain.releaseCollateral(repo);
     repo.transactions.push(transactionId);
     repo.status = "released";
+    this.persist();
     return repo;
   }
 
   async placeOrder(input: Omit<Order, "id" | "remaining" | "status" | "createdAt">) {
     requirePositive(input.quantity, "quantity");
     requirePositive(input.priceHbar, "priceHbar");
+    this.requireEligible(input.tokenId, input.owner);
     const order: Order = { ...input, id: id("order"), remaining: input.quantity, status: "open", createdAt: new Date().toISOString() };
     this.orders.set(order.id, order);
-    return this.match(order);
+    const result = await this.match(order);
+    this.persist();
+    return result;
   }
 
   createDistribution(input: Omit<Distribution, "id" | "status">) {
     requirePositive(input.amountHbar, "amountHbar");
     const distribution: Distribution = { ...input, id: id("distribution"), status: "draft" };
     this.distributions.set(distribution.id, distribution);
+    this.persist();
     return distribution;
   }
 
   state() {
-    return { repos: [...this.repos.values()], orders: [...this.orders.values()], trades: [...this.trades.values()], distributions: [...this.distributions.values()] };
+    return { repos: [...this.repos.values()], orders: [...this.orders.values()], trades: [...this.trades.values()], distributions: [...this.distributions.values()], kyc: [...this.kyc.entries()].map(([tokenId, accounts]) => ({ tokenId, accounts: [...accounts] })) };
   }
 
   private async match(taker: Order) {
-    const candidates = [...this.orders.values()].filter((maker) => maker.id !== taker.id && maker.status === "open" && maker.tokenId === taker.tokenId && maker.side !== taker.side && compatible(taker, maker));
+    const candidates = [...this.orders.values()].filter((maker) => maker.id !== taker.id && maker.status === "open" && maker.tokenId === taker.tokenId && maker.side !== taker.side && this.isEligible(maker.tokenId, maker.owner) && this.isEligible(taker.tokenId, taker.owner) && compatible(taker, maker));
     candidates.sort((a, b) => taker.side === "buy" ? a.priceHbar - b.priceHbar : b.priceHbar - a.priceHbar);
     for (const maker of candidates) {
       if (!taker.remaining) break;
@@ -140,6 +175,10 @@ export class LiquidityPlatform {
     if (!repo) throw new Error("Repo agreement not found");
     return repo;
   }
+
+  private isEligible(tokenId: string, accountId: string) { return this.kyc.get(tokenId)?.has(accountId) === true; }
+  private requireEligible(tokenId: string, accountId: string) { if (!this.isEligible(tokenId, accountId)) throw new Error(`Account ${accountId} is not KYC eligible for token ${tokenId}`); }
+  private persist() { this.store.save({ repos: [...this.repos.values()], orders: [...this.orders.values()], trades: [...this.trades.values()], distributions: [...this.distributions.values()], kyc: [...this.kyc.entries()].map(([tokenId, accounts]) => [tokenId, [...accounts]]) }); }
 }
 
 function compatible(taker: Order, maker: Order) {
