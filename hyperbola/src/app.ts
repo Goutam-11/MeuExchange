@@ -15,8 +15,9 @@ export function createApp(platform: LiquidityPlatform, mode: "demo" | "testnet",
     if (context.req.path.startsWith("/api/auth/")) return next();
     const authorization = context.req.header("authorization");
     const token = authorization?.startsWith("Bearer ") ? authorization.slice(7) : "";
-    if (!accessToken) return next();
     if (authorization === `Bearer ${accessToken}` || walletAuth?.verify(token)) return next();
+    if (!accessToken && !walletAuth) return next();
+    if (!accessToken && context.req.method === "GET") return next();
     return context.json({ error: "Authentication required" }, 401);
   });
   app.use("/api/*", async (context, next) => {

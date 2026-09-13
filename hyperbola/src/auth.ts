@@ -24,6 +24,15 @@ export class WalletAuth {
     const challenge = this.challenges.get(nonce);
     this.challenges.delete(nonce);
     if (!challenge || challenge.accountId !== accountId || challenge.expiresAt <= Date.now()) throw new Error("Challenge is missing, expired, or already used");
+    return this.issueSession(accountId, challenge, signature);
+  }
+
+  async sessionFromChallenge(accountId: string, nonce: string, signature: string, challenge: { accountId: string; message: string; expiresAt: number }) {
+    if (challenge.accountId !== accountId || challenge.expiresAt <= Date.now()) throw new Error("Challenge is missing, expired, or already used");
+    return this.issueSession(accountId, challenge, signature);
+  }
+
+  private async issueSession(accountId: string, challenge: Challenge, signature: string) {
     const recovered = recoverAddress(challenge.message, signature);
     const resolved = await this.mirror.resolveAccount(recovered);
     if (!resolved.ok || resolved.account !== accountId) throw new Error("Wallet does not control the claimed Hedera account");

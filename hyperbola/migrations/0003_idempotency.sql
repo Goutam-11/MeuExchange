@@ -1,0 +1,1 @@
+CREATE TABLE IF NOT EXISTS idempotency (cache_key TEXT PRIMARY KEY, status INTEGER NOT NULL, body TEXT NOT NULL, expires_at INTEGER NOT NULL);
