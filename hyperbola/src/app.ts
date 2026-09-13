@@ -6,7 +6,7 @@ import { HederaMirrorClient } from "./mirror.js";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { WalletAuth } from "./auth.js";
 
-export function createApp(platform: LiquidityPlatform, mode: "demo" | "testnet", intents = new IntentBook(), accessToken = process.env.API_ACCESS_TOKEN, mirror = new HederaMirrorClient(process.env.HEDERA_MIRROR_NODE || ""), walletAuth = process.env.SESSION_SECRET ? new WalletAuth(process.env.SESSION_SECRET, mirror, process.env.SESSION_ORIGIN || "http://localhost", new Set((process.env.OPERATOR_ACCOUNT_IDS || "").split(",").map((value) => value.trim()).filter(Boolean))) : undefined) {
+export function createApp(platform: LiquidityPlatform, mode: "demo" | "testnet", intents = new IntentBook(), accessToken = process.env.API_ACCESS_TOKEN, mirror = new HederaMirrorClient(process.env.HEDERA_MIRROR_NODE || ""), walletAuth = process.env.SESSION_SECRET ? new WalletAuth(process.env.SESSION_SECRET, mirror, process.env.SESSION_ORIGIN || "http://localhost", new Set((process.env.OPERATOR_ACCOUNT_IDS || "").split(",").map((value) => value.trim()).filter(Boolean))) : undefined, config: Partial<Record<"resolverAddress" | "factoryAddress" | "mirrorNode" | "rpcNode" | "configId" | "referenceSecurityId", string>> & { configVersion?: number } = {}) {
   const app = new Hono();
   const idempotentResponses = new Map<string, { status: number; headers: Headers; body: string; expiresAt: number }>();
   const idempotentInFlight = new Map<string, Promise<void>>();
@@ -53,13 +53,13 @@ export function createApp(platform: LiquidityPlatform, mode: "demo" | "testnet",
     ats: {
       sdk: "@hashgraph/asset-tokenization-sdk",
       complianceBoundary: "ATS token controls",
-      resolverAddress: process.env.ATS_RESOLVER_ADDRESS || "",
-      factoryAddress: process.env.ATS_FACTORY_ADDRESS || "",
-      mirrorNode: process.env.HEDERA_MIRROR_NODE || "",
-      rpcNode: process.env.HEDERA_RPC_NODE || "",
-      configId: process.env.ATS_CONFIG_ID || "",
-      configVersion: process.env.ATS_CONFIG_VERSION ? Number(process.env.ATS_CONFIG_VERSION) : 0,
-      referenceSecurityId: process.env.ATS_REFERENCE_SECURITY_ID || "",
+      resolverAddress: config.resolverAddress ?? process.env.ATS_RESOLVER_ADDRESS ?? "",
+      factoryAddress: config.factoryAddress ?? process.env.ATS_FACTORY_ADDRESS ?? "",
+      mirrorNode: config.mirrorNode ?? process.env.HEDERA_MIRROR_NODE ?? "",
+      rpcNode: config.rpcNode ?? process.env.HEDERA_RPC_NODE ?? "",
+      configId: config.configId ?? process.env.ATS_CONFIG_ID ?? "",
+      configVersion: config.configVersion ?? (process.env.ATS_CONFIG_VERSION ? Number(process.env.ATS_CONFIG_VERSION) : 0),
+      referenceSecurityId: config.referenceSecurityId ?? process.env.ATS_REFERENCE_SECURITY_ID ?? "",
     },
     assets: offeredAssetTypes,
     state: platform.state(),

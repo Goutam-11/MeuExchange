@@ -36,6 +36,7 @@ let walletChain = "";
 let sessionAccount = window.localStorage.getItem("meu-session-account") || "";
 let sessionToken = window.localStorage.getItem("meu-session-token") || "";
 let walletSignature = "";
+const apiBaseUrl = ((import.meta as ImportMeta & { env?: Record<string, string> }).env?.PUBLIC_API_BASE_URL || "").replace(/\/$/, "");
 let atsSdk: typeof import("@hashgraph/asset-tokenization-sdk") | null = null;
 let atsInitialized = false;
 
@@ -81,7 +82,8 @@ function apiRequest(input: RequestInfo | URL, init: RequestInit = {}) {
   const headers = new Headers(init.headers);
   const token = sessionToken || window.localStorage.getItem("meu-api-token");
   if (token) headers.set("authorization", `Bearer ${token}`);
-  return fetch(input, { ...init, headers });
+  const target = typeof input === "string" && input.startsWith("/") && apiBaseUrl ? `${apiBaseUrl}${input}` : input;
+  return fetch(target, { ...init, headers });
 }
 
 function setText(selector: string, value: string | number) {
@@ -205,11 +207,11 @@ async function connectWallet() {
     walletAccount = accounts[0] || "";
     walletChain = String(await provider.request({ method: "eth_chainId" }));
     const accountId = await resolveHederaAccount(walletAccount);
-    const challengeResponse = await fetch("/api/auth/challenge", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ accountId }) });
+    const challengeResponse = await apiRequest("/api/auth/challenge", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ accountId }) });
     const challenge = await challengeResponse.json() as { message?: string; nonce?: string; error?: string };
     if (!challengeResponse.ok || !challenge.message || !challenge.nonce) throw new Error(challenge.error || "Could not start wallet authentication");
     walletSignature = String(await provider.request({ method: "personal_sign", params: [challenge.message, walletAccount] }));
-    const sessionResponse = await fetch("/api/auth/session", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ accountId, nonce: challenge.nonce, signature: walletSignature }) });
+    const sessionResponse = await apiRequest("/api/auth/session", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ accountId, nonce: challenge.nonce, signature: walletSignature }) });
     const session = await sessionResponse.json() as { token?: string; account?: string; error?: string };
     if (!sessionResponse.ok || !session.token || !session.account) throw new Error(session.error || "Wallet authentication failed");
     sessionToken = session.token;

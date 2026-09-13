@@ -23,6 +23,7 @@ export class JsonDocumentStore<T> implements DocumentStore<T> {
 }
 
 export class MemoryDocumentStore<T> implements DocumentStore<T> {
-  load() { return undefined; }
+  constructor(private readonly initial?: T) {}
+  load() { return this.initial; }
   save(_value: T) {}
 }

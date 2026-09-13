@@ -1,0 +1,19 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "meu-exchange-api",
+  "main": "src/worker.ts",
+  "compatibility_date": "2026-09-13",
+  "compatibility_flags": ["nodejs_compat"],
+  "vars": {
+    "MODE": "testnet",
+    "FRONTEND_ORIGIN": "*",
+    "HEDERA_MIRROR_NODE": "https://testnet.mirrornode.hedera.com/api/v1/",
+    "HEDERA_RPC_NODE": "https://testnet.hashio.io/api"
+    ,"ATS_RESOLVER_ADDRESS": "0.0.7707874"
+    ,"ATS_FACTORY_ADDRESS": "0.0.7708432"
+  },
+  "d1_databases": [
+    { "binding": "DB", "database_name": "meu-exchange", "database_id": "0b3bc577-201a-4982-891b-0b6dcc74a07b", "migrations_dir": "./migrations" }
+  ],
+  "observability": { "enabled": true }
+}

@@ -87,7 +87,7 @@ const applications = [
       crossorigin
     />
     <link rel="preload" href="/images/city.webp" as="image" />
-    <title>MEU Exchange — Real assets. New possibilities.</title>
+    <title>MEU Exchange — Compliant RWA liquidity on Hedera</title>
   </head>
   <body>
     <!-- THESIS: Reveal the market beneath the real world through an interactive photographic canvas.
@@ -138,8 +138,8 @@ const applications = [
         />
         <canvas class="scan-canvas" aria-hidden="true"></canvas>
         <div class="hero-heading">
-          <h1>Real assets.<br class="mobile-break" /> New possibilities.</h1><p>
-            A more connected market for the real economy.
+          <h1>Real assets.<br class="mobile-break" /> Ready to move.</h1><p>
+            Non-custodial liquidity infrastructure for compliant RWA tokens on Hedera.
           </p>
         </div>
         <div class="scan-controls">
@@ -162,14 +162,12 @@ const applications = [
       </section>
       <section class="intro section-frame" id="about">
         <h2>
-          The real world holds value.<br />We’re building the market<br />that
-          helps it move.
+          Tokenised value needs<br />a compliant market<br />to move through.
         </h2>
         <div class="intro-bottom">
           <span class="section-name"><i></i> WHY MEU EXCHANGE</span><p>
-            From tokenised notes to fund units. Connect issuance, investor
-            eligibility, collateral, and transfers in one continuous asset
-            lifecycle.
+            MEU Exchange connects ATS issuance, verified participants, repo
+            collateral, and wallet-signed settlement in one operational layer.
           </p>
         </div>
         <span class="frame-node left"></span><span class="frame-node right"
@@ -228,10 +226,10 @@ const applications = [
       >
         <div class="section-heading">
           <h2 id="connection-title">
-            From real-world value<br />to digital possibility.
+            From tokenised asset<br />to settled liquidity.
           </h2><p>
-            MEU brings the pieces of tokenised finance together. Assets have
-            terms. Participants have permissions. Every next step has a place.
+            MEU Exchange sits around the ATS compliance boundary. Assets have
+            terms, participants have permissions, and every next step is visible.
           </p>
         </div>
         <div
@@ -275,10 +273,10 @@ const applications = [
       >
         <div class="section-heading">
           <h2 id="applications-title">
-            Real assets.<br />Real applications.
+            RWA tokens.<br />Real workflows.
           </h2><p>
-            Start with the instruments that make the real economy work. Explore
-            our proposed asset types and the workflows taking shape around them.
+            Start with tokenised fixed-income notes and fund units, then move
+            them through issuance, collateral, trading, and distribution workflows.
           </p>
         </div>
         <div
@@ -417,9 +415,9 @@ const applications = [
       </section>
       <section class="access-section section-frame" id="network">
         <div class="section-heading">
-          <h2>One market layer.<br />Two ways to connect.</h2><p>
-            For the teams shaping an offering and the developers connecting the
-            next step.
+          <h2>One exchange layer.<br />Every next step connected.</h2><p>
+            For issuers, operators, investors, and developers working with
+            compliant real-world assets.
           </p>
         </div>
         <div class="access-columns">
@@ -427,16 +425,16 @@ const applications = [
             <span class="small-label">ISSUER WORKFLOWS</span><h3>
               Bring your asset.<br />Define its possibilities.
             </h3><p>
-              Explore supported instruments and the terms an issuer needs to
-              provide, from maturity to investor eligibility.
+              Bring issuer-defined notes or fund units into an ATS-compatible
+              lifecycle, with terms, eligibility, and transfer rules visible.
             </p><a class="text-link" href="#assets"
               >Discover our asset types <span aria-hidden="true">→</span></a>
           </article><article>
             <span class="small-label">DEVELOPER INFRASTRUCTURE</span><h3>
               Connect the workflow.<br />Keep your own keys.
             </h3><p>
-              Build around transaction intents for ATS on Hedera. Wallet signing
-              and live deployment are the next integration steps.
+              Build around transaction intents for ATS on Hedera. Participants
+              sign through their own wallets; MEU never receives a private key.
             </p><details>
               <summary
                 >View integration overview <span aria-hidden="true">+</span
@@ -444,14 +442,15 @@ const applications = [
               ><div class="integration-details">
                 <p>
                   The Hono backend prepares issuance, KYC, lock, release, and
-                  transfer intents. The current API uses in-memory demo state.
+                  transfer intents, while the dashboard executes ATS actions in
+                  the participant wallet.
                 </p><code
                   >POST /api/intents/issuance<br />POST /api/intents/kyc<br
                   />POST /api/intents/lock<br />POST /api/intents/release<br
                   />POST /api/intents/transfer</code
                 ><p>
-                  Live settlement, payment execution, and transaction
-                  confirmation are not yet connected.
+                  Hedera Mirror Node verification confirms submitted transaction
+                  IDs before an intent is marked complete.
                 </p>
               </div>
             </details>
@@ -474,7 +473,7 @@ const applications = [
           class="closing-content"
         >
           <h2 id="closing-title">
-            The value is real.<br />The possibilities are open.
+            Real assets.<br />Connected liquidity.
           </h2><a class="light-button" href="#explore"
             >Explore MEU Exchange <svg
               class="arrow"
@@ -487,14 +486,14 @@ const applications = [
     <footer class="site-footer">
       <div class="footer-top">
         <a class="wordmark" href="#home">meu<span>exchange</span></a><p>
-          A market for real-world possibilities.
+          Non-custodial infrastructure for compliant RWA liquidity.
         </p><div>
           <a href="#assets">Our assets</a><a href="#platform">Platform</a><a
             href="#network">Developers</a
           ><a href="#about">About MEU</a>
         </div>
       </div><div class="footer-statement">
-        Real world.<br /><span>Connected.</span>
+        Real assets.<br /><span>Connected.</span>
       </div><div class="footer-bottom">
         <span>© {new Date().getFullYear()} MEU Exchange</span><span
           >In development · Hedera Testnet</span

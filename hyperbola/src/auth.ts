@@ -1,4 +1,4 @@
-import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import sha3 from "js-sha3";
 import { secp256k1 } from "@noble/curves/secp256k1";
 import type { HederaMirrorClient } from "./mirror.js";
@@ -13,7 +13,7 @@ export class WalletAuth {
   challenge(accountId: string) {
     if (!accountId) throw new Error("accountId is required");
     this.sweep();
-    const nonce = randomBytes(24).toString("hex");
+    const nonce = `${randomUUID()}${randomUUID()}`.replace(/-/g, "");
     const expiresAt = Date.now() + 5 * 60_000;
     const message = `MEU Exchange wants you to sign in:\n${this.origin}\n\nAccount: ${accountId}\nNonce: ${nonce}\nIssued At: ${new Date().toISOString()}\nExpiration Time: ${new Date(expiresAt).toISOString()}`;
     this.challenges.set(nonce, { accountId, message, expiresAt });

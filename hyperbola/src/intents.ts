@@ -3,8 +3,7 @@ import type { CreateBondRequest as CreateBondRequestType, CreateEquityRequest as
 import { offeredAssetTypes } from "./assets.js";
 import { MemoryDocumentStore, type DocumentStore } from "./state.js";
 
-const require = createRequire(import.meta.url);
-const { CreateBondRequest, CreateEquityRequest, GrantKycRequest, LockRequest, ReleaseRequest, TransferRequest } = require("@hashgraph/asset-tokenization-sdk") as {
+type SdkConstructors = {
   CreateBondRequest: new (input: ConstructorParameters<typeof CreateBondRequestType>[0]) => CreateBondRequestType;
   CreateEquityRequest: new (input: ConstructorParameters<typeof CreateEquityRequestType>[0]) => CreateEquityRequestType;
   GrantKycRequest: new (input: ConstructorParameters<typeof GrantKycRequestType>[0]) => GrantKycRequestType;
@@ -12,6 +11,13 @@ const { CreateBondRequest, CreateEquityRequest, GrantKycRequest, LockRequest, Re
   ReleaseRequest: new (input: ConstructorParameters<typeof ReleaseRequestType>[0]) => ReleaseRequestType;
   TransferRequest: new (input: ConstructorParameters<typeof TransferRequestType>[0]) => TransferRequestType;
 };
+const fallback = class { constructor(input: Record<string, unknown>) { Object.assign(this, input); } } as unknown as new (input: never) => never;
+function sdkConstructors(): SdkConstructors {
+  if (typeof process !== "undefined" && process.versions?.node) {
+    return createRequire(import.meta.url)("@hashgraph/asset-tokenization-sdk") as SdkConstructors;
+  }
+  return { CreateBondRequest: fallback, CreateEquityRequest: fallback, GrantKycRequest: fallback, LockRequest: fallback, ReleaseRequest: fallback, TransferRequest: fallback } as unknown as SdkConstructors;
+}
 
 export type IntentKind = "createBond" | "createEquity" | "grantKyc" | "lock" | "release" | "transfer";
 
@@ -47,22 +53,22 @@ export class IntentBook {
 
   kyc(tokenId: string, accountId: string, vcData: string) {
     if (!tokenId || !accountId || !vcData) throw new Error("tokenId, accountId, and vcData are required");
-    return this.save("grantKyc", serializeRequest(new GrantKycRequest({ securityId: tokenId, targetId: accountId, vcBase64: Buffer.from(vcData, "utf8").toString("base64") })));
+    const { GrantKycRequest } = sdkConstructors(); return this.save("grantKyc", serializeRequest(new GrantKycRequest({ securityId: tokenId, targetId: accountId, vcBase64: Buffer.from(vcData, "utf8").toString("base64") })));
   }
 
   lock(tokenId: string, accountId: string, amount: number, expirationTimestamp: string) {
     if (!tokenId || !accountId || !Number.isFinite(amount) || amount <= 0 || Number.isNaN(Date.parse(expirationTimestamp))) throw new Error("Valid tokenId, accountId, amount, and expirationTimestamp are required");
-    return this.save("lock", serializeRequest(new LockRequest({ securityId: tokenId, targetId: accountId, amount: String(amount), expirationTimestamp })));
+    const { LockRequest } = sdkConstructors(); return this.save("lock", serializeRequest(new LockRequest({ securityId: tokenId, targetId: accountId, amount: String(amount), expirationTimestamp })));
   }
 
   release(tokenId: string, accountId: string, lockId: number) {
     if (!tokenId || !accountId || !Number.isInteger(lockId) || lockId < 0) throw new Error("Valid tokenId, accountId, and lockId are required");
-    return this.save("release", serializeRequest(new ReleaseRequest({ securityId: tokenId, targetId: accountId, lockId })));
+    const { ReleaseRequest } = sdkConstructors(); return this.save("release", serializeRequest(new ReleaseRequest({ securityId: tokenId, targetId: accountId, lockId })));
   }
 
   transfer(tokenId: string, targetId: string, amount: number) {
     if (!tokenId || !targetId || !Number.isFinite(amount) || amount <= 0) throw new Error("Valid tokenId, targetId, and amount are required");
-    return this.save("transfer", serializeRequest(new TransferRequest({ securityId: tokenId, targetId, amount: String(amount) })));
+    const { TransferRequest } = sdkConstructors(); return this.save("transfer", serializeRequest(new TransferRequest({ securityId: tokenId, targetId, amount: String(amount) })));
   }
 
   all() { return [...this.intents.values()]; }
@@ -107,10 +113,12 @@ export class IntentBook {
 }
 
 function bondRequest(input: { name: string; symbol: string; isin: string; currency: string; units: string; configId: string; configVersion: number; maturityDate?: string; nominalValue?: string; ownerAccount?: string }) {
+  const { CreateBondRequest } = sdkConstructors();
   return serializeRequest(new CreateBondRequest({ name: input.name, symbol: input.symbol, isin: input.isin, decimals: 0, isWhiteList: true, erc20VotesActivated: false, isControllable: true, arePartitionsProtected: false, isMultiPartition: false, clearingActive: false, internalKycActivated: true, diamondOwnerAccount: input.ownerAccount, currency: input.currency, numberOfUnits: input.units, nominalValue: input.nominalValue || "100", startingDate: new Date().toISOString(), maturityDate: input.maturityDate || "2030-01-01T00:00:00.000Z", regulationType: 1, regulationSubType: 1, isCountryControlListWhiteList: true, countries: "", info: "Issuer supplied terms required", configId: input.configId, configVersion: input.configVersion }));
 }
 
 function equityRequest(input: { name: string; symbol: string; isin: string; currency: string; units: string; configId: string; configVersion: number; ownerAccount?: string }) {
+  const { CreateEquityRequest } = sdkConstructors();
   return serializeRequest(new CreateEquityRequest({ name: input.name, symbol: input.symbol, isin: input.isin, decimals: 0, isWhiteList: true, erc20VotesActivated: false, isControllable: true, arePartitionsProtected: false, isMultiPartition: false, clearingActive: false, internalKycActivated: true, diamondOwnerAccount: input.ownerAccount, votingRight: false, informationRight: true, liquidationRight: false, subscriptionRight: false, conversionRight: false, redemptionRight: true, putRight: false, dividendRight: 0, currency: input.currency, numberOfShares: input.units, nominalValue: "1", regulationType: 1, regulationSubType: 1, isCountryControlListWhiteList: true, countries: "", info: "Issuer supplied fund terms required", configId: input.configId, configVersion: input.configVersion }));
 }
 
