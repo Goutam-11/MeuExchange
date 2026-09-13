@@ -127,6 +127,15 @@ test("idempotency key returns the original POST result", async () => {
   assert.equal((await first.json() as { id: string }).id, (await second.json() as { id: string }).id);
 });
 
+test("unauthorized idempotency requests cannot poison authenticated retries", async () => {
+  const app = createApp(new LiquidityPlatform(chain), "demo", undefined, "secret");
+  const body = JSON.stringify({ assetType: "fixed-income-note", name: "MEU Note", symbol: "MEUN", isin: "TEST00000002", currency: "USD", units: "1000", configId: "0.0.123456", configVersion: 1 });
+  const denied = await app.request("http://local/api/intents/issuance", { method: "POST", headers: { "content-type": "application/json", "idempotency-key": "same" }, body });
+  const accepted = await app.request("http://local/api/intents/issuance", { method: "POST", headers: { "content-type": "application/json", authorization: "Bearer secret", "idempotency-key": "same" }, body });
+  assert.equal(denied.status, 401);
+  assert.equal(accepted.status, 201);
+});
+
 test("crossing orders are serialized when submitted concurrently", async () => {
   const platform = new LiquidityPlatform(chain);
   await platform.grantKyc("0.0.1", "seller", "vc-seller");
@@ -154,4 +163,18 @@ test("matching never self-trades and uses price-time priority", async () => {
   await priority.placeOrder({ tokenId: "0.0.1", owner: "second", side: "sell", quantity: 1, priceHbar: 2 });
   const fill = await priority.placeOrder({ tokenId: "0.0.1", owner: "buyer", side: "buy", quantity: 1, priceHbar: 2 });
   assert.equal(fill.trades.at(-1)?.seller, "first");
+});
+
+test("repo default, order cancellation, and distribution submission are reachable", async () => {
+  const platform = new LiquidityPlatform(chain);
+  const repo = await platform.createRepo({ tokenId: "0.0.1", borrower: "borrower", lender: "lender", collateralAmount: 10, principalHbar: 2, maturityAt: "2020-01-01T00:00:00.000Z" }).catch(() => undefined);
+  assert.equal(repo, undefined);
+  const futureRepo = await platform.createRepo({ tokenId: "0.0.1", borrower: "borrower", lender: "lender", collateralAmount: 10, principalHbar: 2, maturityAt: "2030-01-01T00:00:00.000Z" });
+  assert.equal(platform.checkRepoMaturities(Date.parse("2031-01-01T00:00:00.000Z"))[0].status, "defaulted");
+  const distribution = platform.createDistribution({ tokenId: "0.0.1", amountHbar: 1, recordDate: "2030-01-01T00:00:00.000Z" });
+  assert.equal(platform.submitDistribution(distribution.id).status, "submitted");
+  await platform.grantKyc("0.0.1", "seller", "vc");
+  const order = (await platform.placeOrder({ tokenId: "0.0.1", owner: "seller", side: "sell", quantity: 1, priceHbar: 1 })).order;
+  assert.equal(platform.cancelOrder(order.id).status, "cancelled");
+  assert.equal(futureRepo.status, "defaulted");
 });

@@ -3,35 +3,37 @@ import { LiquidityPlatform } from "./domain.js";
 import { offeredAssetTypes } from "./assets.js";
 import { IntentBook } from "./intents.js";
 import { HederaMirrorClient } from "./mirror.js";
+import { serveStatic } from "@hono/node-server/serve-static";
 
 export function createApp(platform: LiquidityPlatform, mode: "demo" | "testnet", intents = new IntentBook(), accessToken = process.env.API_ACCESS_TOKEN, mirror = new HederaMirrorClient(process.env.HEDERA_MIRROR_NODE || "")) {
   const app = new Hono();
-  const idempotentResponses = new Map<string, { status: number; headers: Headers; body: string }>();
+  const idempotentResponses = new Map<string, { status: number; headers: Headers; body: string; expiresAt: number }>();
   const idempotentInFlight = new Map<string, Promise<void>>();
   app.get("/health", (context) => context.json({ status: "ok", mode }));
+  app.use("/api/*", async (context, next) => {
+    if (!accessToken) return next();
+    const authorization = context.req.header("authorization");
+    if (authorization !== `Bearer ${accessToken}`) return context.json({ error: "Authentication required" }, 401);
+    return next();
+  });
   app.use("/api/*", async (context, next) => {
     if (context.req.method !== "POST") return next();
     const key = context.req.header("idempotency-key");
     if (!key) return next();
     const cacheKey = `${context.req.path}:${key}`;
     const cached = idempotentResponses.get(cacheKey);
-    if (cached) return new Response(cached.body, { status: cached.status, headers: cached.headers });
+    if (cached && cached.expiresAt > Date.now()) return new Response(cached.body, { status: cached.status, headers: cached.headers });
+    if (cached) idempotentResponses.delete(cacheKey);
     const inFlight = idempotentInFlight.get(cacheKey);
     if (inFlight) { await inFlight; const completed = idempotentResponses.get(cacheKey); return completed ? new Response(completed.body, { status: completed.status, headers: completed.headers }) : next(); }
     const completion = (async () => {
       await next();
       const response = context.res;
-      if (response.status < 500) idempotentResponses.set(cacheKey, { status: response.status, headers: new Headers(response.headers), body: await response.clone().text() });
+      if (response.status >= 200 && response.status < 300) idempotentResponses.set(cacheKey, { status: response.status, headers: new Headers(response.headers), body: await response.clone().text(), expiresAt: Date.now() + 15 * 60_000 });
     })();
     idempotentInFlight.set(cacheKey, completion);
     try { await completion; } finally { idempotentInFlight.delete(cacheKey); }
     return context.res;
-  });
-  app.use("/api/*", async (context, next) => {
-    if (!accessToken) return next();
-    const authorization = context.req.header("authorization");
-    if (authorization !== `Bearer ${accessToken}`) return context.json({ error: "Authentication required" }, 401);
-    return next();
   });
   app.get("/api/state", (context) => context.json(platform.state()));
   app.get("/api/assets", (context) => context.json({ assets: offeredAssetTypes, disclaimer: "Instrument terms and legal approvals are issuer supplied." }));
@@ -54,13 +56,14 @@ export function createApp(platform: LiquidityPlatform, mode: "demo" | "testnet",
       rpcNode: process.env.HEDERA_RPC_NODE || "",
       configId: process.env.ATS_CONFIG_ID || "",
       configVersion: process.env.ATS_CONFIG_VERSION ? Number(process.env.ATS_CONFIG_VERSION) : 0,
+      referenceSecurityId: process.env.ATS_REFERENCE_SECURITY_ID || "",
     },
     assets: offeredAssetTypes,
     state: platform.state(),
     intents: intents.all()
   }));
   app.post("/api/intents/:id/sign", async (context) => {
-    try { const body = await context.req.json(); return context.json(intents.sign(context.req.param("id"), body.accountId, body.signature)); }
+    try { const body = await context.req.json(); requireWalletActor(context, mode, body.accountId); return context.json(intents.sign(context.req.param("id"), body.accountId, body.signature)); }
     catch (error) { return context.json({ error: message(error) }, 400); }
   });
   app.post("/api/intents/:id/submit", async (context) => {
@@ -107,6 +110,7 @@ export function createApp(platform: LiquidityPlatform, mode: "demo" | "testnet",
   app.post("/api/kyc/grants", async (context) => {
     try {
       const body = await context.req.json();
+      requireOperator(context, mode);
       return context.json(await platform.grantKyc(body.tokenId, body.accountId, body.vcData), 201);
     } catch (error) { return context.json({ error: message(error) }, 400); }
   });
@@ -122,16 +126,32 @@ export function createApp(platform: LiquidityPlatform, mode: "demo" | "testnet",
     try { return context.json(await platform.releaseRepo(context.req.param("id"))); }
     catch (error) { return context.json({ error: message(error) }, 400); }
   });
+  app.post("/api/repos/check-maturity", (context) => context.json({ defaulted: platform.checkRepoMaturities() }));
   app.post("/api/orders", async (context) => {
-    try { return context.json(await platform.placeOrder(await context.req.json()), 201); }
+    try { const body = await context.req.json(); requireWalletActor(context, mode, body.owner); return context.json(await platform.placeOrder(body), 201); }
+    catch (error) { return context.json({ error: message(error) }, 400); }
+  });
+  app.post("/api/orders/:id/cancel", (context) => {
+    try { return context.json(platform.cancelOrder(context.req.param("id"))); }
     catch (error) { return context.json({ error: message(error) }, 400); }
   });
   app.post("/api/distributions", async (context) => {
     try { return context.json(platform.createDistribution(await context.req.json()), 201); }
     catch (error) { return context.json({ error: message(error) }, 400); }
   });
+  app.post("/api/distributions/:id/submit", (context) => {
+    try { return context.json(platform.submitDistribution(context.req.param("id"))); }
+    catch (error) { return context.json({ error: message(error) }, 400); }
+  });
+  app.use("/*", serveStatic({ root: "./dist", index: "index.html" }));
   app.notFound((context) => context.json({ error: "Route not found" }, 404));
   return app;
 }
 
 function message(error: unknown) { return error instanceof Error ? error.message : "Unknown error"; }
+function requireWalletActor(context: { req: { header(name: string): string | undefined } }, mode: "demo" | "testnet", account: string) {
+  if (mode === "testnet" && context.req.header("x-meu-account") !== account) throw new Error("Wallet identity does not match the requested account");
+}
+function requireOperator(context: { req: { header(name: string): string | undefined } }, mode: "demo" | "testnet") {
+  if (mode === "testnet" && (!process.env.OPERATOR_ACCESS_TOKEN || context.req.header("x-operator-token") !== process.env.OPERATOR_ACCESS_TOKEN)) throw new Error("Operator authorization required");
+}

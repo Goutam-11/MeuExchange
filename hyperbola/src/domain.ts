@@ -138,6 +138,13 @@ export class LiquidityPlatform {
     return repo;
   }
 
+  checkRepoMaturities(now = Date.now()) {
+    const defaulted: RepoAgreement[] = [];
+    for (const repo of this.repos.values()) if ((repo.status === "funded" || repo.status === "collateral_locked") && Date.parse(repo.maturityAt) <= now) { repo.status = "defaulted"; defaulted.push(repo); }
+    if (defaulted.length) this.persist();
+    return defaulted;
+  }
+
   async placeOrder(input: Omit<Order, "id" | "remaining" | "status" | "createdAt">) {
     const mutation = this.orderMutation.then(() => this.placeOrderInternal(input));
     this.orderMutation = mutation.then(() => undefined, () => undefined);
@@ -161,6 +168,20 @@ export class LiquidityPlatform {
     this.distributions.set(distribution.id, distribution);
     this.persist();
     return distribution;
+  }
+
+  submitDistribution(distributionId: Id) {
+    const distribution = this.distributions.get(distributionId);
+    if (!distribution) throw new Error("Distribution not found");
+    if (distribution.status !== "draft") throw new Error("Only draft distributions can be submitted");
+    distribution.status = "submitted"; this.persist(); return distribution;
+  }
+
+  cancelOrder(orderId: Id) {
+    const order = this.orders.get(orderId);
+    if (!order) throw new Error("Order not found");
+    if (order.status !== "open") throw new Error("Only open orders can be cancelled");
+    order.status = "cancelled"; order.remaining = 0; this.persist(); return order;
   }
 
   state() {

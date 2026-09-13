@@ -2,7 +2,7 @@ type DashboardPayload = {
   mode: "demo" | "testnet";
   network: string;
   custody: string;
-  ats: { sdk: string; complianceBoundary: string; resolverAddress: string; factoryAddress: string; mirrorNode: string; rpcNode: string; configId: string; configVersion: number };
+  ats: { sdk: string; complianceBoundary: string; resolverAddress: string; factoryAddress: string; mirrorNode: string; rpcNode: string; configId: string; configVersion: number; referenceSecurityId: string };
   assets: Array<{
     id: string;
     name: string;
@@ -78,6 +78,7 @@ function apiRequest(input: RequestInfo | URL, init: RequestInit = {}) {
   const headers = new Headers(init.headers);
   const token = window.localStorage.getItem("meu-api-token");
   if (token) headers.set("authorization", `Bearer ${token}`);
+  if (walletAccount) headers.set("x-meu-account", walletAccount);
   return fetch(input, { ...init, headers });
 }
 
@@ -241,6 +242,11 @@ async function connectAtsWallet() {
     atsInitialized = true;
   }
   await ats.Network.connect(new ats.ConnectRequest({ ...network, wallet: ats.SupportedWallets.METAMASK }));
+  if ((!config.configId || !config.configVersion) && config.referenceSecurityId) {
+    const info = await ats.Management.getConfigInfo(new ats.GetConfigInfoRequest({ securityId: config.referenceSecurityId }));
+    config.configId = info.configId;
+    config.configVersion = info.configVersion;
+  }
   return ats;
 }
 
