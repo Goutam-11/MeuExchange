@@ -13,7 +13,7 @@ type SdkConstructors = {
 };
 const fallback = class { constructor(input: Record<string, unknown>) { Object.assign(this, input); } } as unknown as new (input: never) => never;
 function sdkConstructors(): SdkConstructors {
-  if (typeof process !== "undefined" && process.versions?.node) {
+  if (typeof import.meta.url === "string" && typeof process !== "undefined" && process.versions?.node) {
     return createRequire(import.meta.url)("@hashgraph/asset-tokenization-sdk") as SdkConstructors;
   }
   return { CreateBondRequest: fallback, CreateEquityRequest: fallback, GrantKycRequest: fallback, LockRequest: fallback, ReleaseRequest: fallback, TransferRequest: fallback } as unknown as SdkConstructors;
