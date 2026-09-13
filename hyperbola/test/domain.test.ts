@@ -5,6 +5,9 @@ import { createApp } from "../src/app.js";
 import { AtsGateway } from "../src/gateway.js";
 import { IntentBook } from "../src/intents.js";
 import { HederaMirrorClient } from "../src/mirror.js";
+import { WalletAuth } from "../src/auth.js";
+import sha3 from "js-sha3";
+import { secp256k1 } from "@noble/curves/secp256k1";
 
 const chain: ChainGateway = {
   grantKyc: async () => "kyc-1",
@@ -96,6 +99,42 @@ test("intent requests use ATS field names and validated value types", () => {
   assert.deepEqual(lock.request, { securityId: "0.0.10", targetId: "0.0.20", amount: "5", expirationTimestamp: "2030-01-01T00:00:00.000Z" });
   assert.deepEqual(release.request, { securityId: "0.0.10", targetId: "0.0.20", lockId: 4 });
   assert.equal(kyc.schemaVersion, 2);
+});
+
+function signWalletMessage(message: string, privateKey: Uint8Array) {
+  const prefix = `\x19Ethereum Signed Message:\n${Buffer.byteLength(message, "utf8")}`;
+  const hash = Uint8Array.from(Buffer.from(sha3.keccak_256(Buffer.from(`${prefix}${message}`, "utf8")), "hex"));
+  const signature = secp256k1.sign(hash, privateKey);
+  return `0x${Buffer.from(signature.toCompactRawBytes()).toString("hex")}${(signature.recovery + 27).toString(16).padStart(2, "0")}`;
+}
+
+test("wallet challenge issues a session and consumes the nonce", async () => {
+  const mirror = new HederaMirrorClient("https://mirror", async () => new Response(JSON.stringify({ account: "0.0.42" }), { status: 200 }));
+  const auth = new WalletAuth("test-secret", mirror, "https://meu.example");
+  const privateKey = new Uint8Array(32).fill(7);
+  const challenge = auth.challenge("0.0.42");
+  const session = await auth.session("0.0.42", challenge.nonce, signWalletMessage(challenge.message, privateKey));
+  assert.equal(auth.verify(session.token)?.account, "0.0.42");
+  await assert.rejects(() => auth.session("0.0.42", challenge.nonce, "0x" + "00".repeat(65)), /missing, expired, or already used/);
+});
+
+test("wallet challenge rejects expired and unresolved accounts", async () => {
+  const mirror = new HederaMirrorClient("https://mirror", async () => new Response(JSON.stringify({}), { status: 200 }));
+  const auth = new WalletAuth("test-secret", mirror);
+  const challenge = auth.challenge("0.0.99");
+  await assert.rejects(() => auth.session("0.0.99", challenge.nonce, signWalletMessage(challenge.message, new Uint8Array(32).fill(8))), /does not control/);
+});
+
+test("wallet sessions cannot be spoofed by headers or used for another account", async () => {
+  const mirror = new HederaMirrorClient("https://mirror", async () => new Response(JSON.stringify({ account: "0.0.42" }), { status: 200 }));
+  const auth = new WalletAuth("test-secret", mirror);
+  const app = createApp(new LiquidityPlatform(chain), "demo", new IntentBook(), undefined, mirror, auth);
+  const unauthenticated = await app.request("http://local/api/intents/fake/sign", { method: "POST", headers: { "content-type": "application/json", "x-meu-account": "0.0.42" }, body: JSON.stringify({ accountId: "0.0.42", signature: "ignored" }) });
+  assert.equal(unauthenticated.status, 403);
+  const challenge = auth.challenge("0.0.42");
+  const session = await auth.session("0.0.42", challenge.nonce, signWalletMessage(challenge.message, new Uint8Array(32).fill(7)));
+  const forbidden = await app.request("http://local/api/orders", { method: "POST", headers: { authorization: `Bearer ${session.token}`, "content-type": "application/json" }, body: JSON.stringify({ tokenId: "0.0.1", owner: "0.0.99", side: "sell", quantity: 1, priceHbar: 1 }) });
+  assert.equal(forbidden.status, 403);
 });
 
 test("ATS request validation rejects malformed issuance and operations", () => {

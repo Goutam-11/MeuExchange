@@ -3,6 +3,15 @@ export interface MirrorVerification { ok: boolean; reason?: string; transactionI
 export class HederaMirrorClient {
   constructor(private readonly baseUrl: string, private readonly fetcher: typeof fetch = fetch) {}
 
+  async resolveAccount(evmAddress: string): Promise<{ ok: boolean; account?: string; reason?: string }> {
+    if (!this.baseUrl) return { ok: false, reason: "HEDERA_MIRROR_NODE is not configured" };
+    const base = this.baseUrl.endsWith("/") ? this.baseUrl : `${this.baseUrl}/`;
+    const response = await this.fetcher(`${base}accounts/${encodeURIComponent(evmAddress)}`, { headers: { accept: "application/json" } });
+    if (!response.ok) return { ok: false, reason: `Mirror node returned HTTP ${response.status}` };
+    const body = await response.json() as { account?: string };
+    return body.account ? { ok: true, account: body.account } : { ok: false, reason: "Mirror node returned no Hedera account ID" };
+  }
+
   async verifyTransaction(transactionId: string): Promise<MirrorVerification> {
     if (!this.baseUrl) return { ok: false, reason: "HEDERA_MIRROR_NODE is not configured" };
     const base = this.baseUrl.endsWith("/") ? this.baseUrl : `${this.baseUrl}/`;

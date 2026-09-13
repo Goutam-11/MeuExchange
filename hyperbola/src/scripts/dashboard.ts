@@ -33,6 +33,9 @@ const alertBox = root.querySelector<HTMLElement>("#dashboard-alert")!;
 let snapshot: DashboardPayload | null = null;
 let walletAccount = "";
 let walletChain = "";
+let sessionAccount = window.localStorage.getItem("meu-session-account") || "";
+let sessionToken = window.localStorage.getItem("meu-session-token") || "";
+let walletSignature = "";
 let atsSdk: typeof import("@hashgraph/asset-tokenization-sdk") | null = null;
 let atsInitialized = false;
 
@@ -76,9 +79,8 @@ async function getDashboard() {
 
 function apiRequest(input: RequestInfo | URL, init: RequestInit = {}) {
   const headers = new Headers(init.headers);
-  const token = window.localStorage.getItem("meu-api-token");
+  const token = sessionToken || window.localStorage.getItem("meu-api-token");
   if (token) headers.set("authorization", `Bearer ${token}`);
-  if (walletAccount) headers.set("x-meu-account", walletAccount);
   return fetch(input, { ...init, headers });
 }
 
@@ -202,6 +204,18 @@ async function connectWallet() {
     const accounts = await provider.request({ method: "eth_requestAccounts" }) as string[];
     walletAccount = accounts[0] || "";
     walletChain = String(await provider.request({ method: "eth_chainId" }));
+    const accountId = await resolveHederaAccount(walletAccount);
+    const challengeResponse = await fetch("/api/auth/challenge", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ accountId }) });
+    const challenge = await challengeResponse.json() as { message?: string; nonce?: string; error?: string };
+    if (!challengeResponse.ok || !challenge.message || !challenge.nonce) throw new Error(challenge.error || "Could not start wallet authentication");
+    walletSignature = String(await provider.request({ method: "personal_sign", params: [challenge.message, walletAccount] }));
+    const sessionResponse = await fetch("/api/auth/session", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ accountId, nonce: challenge.nonce, signature: walletSignature }) });
+    const session = await sessionResponse.json() as { token?: string; account?: string; error?: string };
+    if (!sessionResponse.ok || !session.token || !session.account) throw new Error(session.error || "Wallet authentication failed");
+    sessionToken = session.token;
+    sessionAccount = session.account;
+    window.localStorage.setItem("meu-session-token", sessionToken);
+    window.localStorage.setItem("meu-session-account", sessionAccount);
     walletDialog.hidden = true;
     updateWallet();
   } catch (error) {
@@ -305,7 +319,7 @@ intentTable.addEventListener("click", async (event) => {
       const intent = snapshot?.intents.find((item) => item.id === signId);
       if (!intent) throw new Error("Intent is no longer in the dashboard snapshot");
       const transactionId = await submitAtsIntent(intent);
-      const response = await apiRequest(`/api/intents/${encodeURIComponent(signId)}/sign`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ accountId: walletAccount, signature: "ats-sdk-wallet" }) });
+      const response = await apiRequest(`/api/intents/${encodeURIComponent(signId)}/sign`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ accountId: sessionAccount || await resolveHederaAccount(), signature: walletSignature }) });
       const body = await response.json() as { error?: string };
       if (!response.ok) throw new Error(body.error || "The API rejected the signature");
       const submitted = await apiRequest(`/api/intents/${encodeURIComponent(signId)}/submit`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ transactionId }) });
